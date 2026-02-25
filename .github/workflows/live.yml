@@ -1,8 +1,8 @@
-name: MiTV_24-7_Extreme_Stability
+name: MiTV_24-7_NonStop_Engine
 
 on:
   schedule:
-    - cron: '0 */5 * * *' # Har 5 ghante baad naya worker check karega
+    - cron: '0 */5 * * *'
   push:
     paths:
       - 'playlist.m3u'
@@ -18,22 +18,28 @@ jobs:
       - name: 2. Install FFmpeg Core
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-liberation
+          sudo apt-get install -y ffmpeg
 
-      - name: 3. Start Professional High-Stability Stream
+      - name: 3. Start Professional Streaming (With Logo)
         run: |
           STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1)
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "MiTV Network is launching High-Stability mode: $STREAM_URL"
+          echo "MiTV Network is launching adaptive stream with Logo: $STREAM_URL"
 
-          # [0:v] crop=iw:ih-40:0:40 -> Upar se 40 pixels crop karega
-          # scale=1280:720 -> Wapis standard size karega
-          # asetrate=44100*1.02 -> Audio thori si change (very minor)
+          # 1. [1:v]scale=200:-1 logo ko 200px wide karta hai
+          # 2. overlay=10:10 logo ko Top-Left corner mein 10 pixels ka gap de kar lagata hai
           
           timeout 5.8h ffmpeg -re \
-          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
+          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2 \
           -stream_loop -1 \
+          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+          -i "$STREAM_URL" -i "$LOGO_URL" \
+          -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
+          -c:v libx264 -preset veryfast \
+          -crf 23 -maxrate 3000k -bufsize 6000k \
+          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
+          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
           -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
           -i "$STREAM_URL" -i "$LOGO_URL" \
           -filter_complex \
