@@ -1,8 +1,8 @@
-name: MiTV_24-7_NonStop_Engine
+name: MiTV_24-7_Extreme_Stability
 
 on:
   schedule:
-    - cron: '0 */5 * * *'
+    - cron: '0 */5 * * *' # Har 5 ghante baad naya worker check karega
   push:
     paths:
       - 'playlist.m3u'
@@ -18,25 +18,38 @@ jobs:
       - name: 2. Install FFmpeg Core
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg fonts-liberation
 
-      - name: 3. Start Professional Streaming (With Logo)
+      - name: 3. Start Professional High-Stability Stream
         run: |
           STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1)
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "MiTV Network is launching adaptive stream with Logo: $STREAM_URL"
+          echo "MiTV Network is launching High-Stability mode: $STREAM_URL"
 
-          # 1. [1:v]scale=200:-1 logo ko 200px wide karta hai
-          # 2. overlay=10:10 logo ko Top-Left corner mein 10 pixels ka gap de kar lagata hai
+          # [0:v] crop=iw:ih-40:0:40 -> Upar se 40 pixels crop karega
+          # scale=1280:720 -> Wapis standard size karega
+          # asetrate=44100*1.02 -> Audio thori si change (very minor)
           
           timeout 5.8h ffmpeg -re \
-          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2 \
+          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
           -stream_loop -1 \
           -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+          -i "$STREAM_URL" -i "$LOGO_URL" \
+          -filter_complex \
+          "[0:v]crop=iw:ih-40:0:40,scale=1280:720[v_cropped]; \
+           [1:v]scale=150:-1,rotate='if(between(mod(t,10),0,2), t*PI, 0)':c=none:ow=rotw(0):oh=roth(0)[logo]; \
+           [v_cropped]drawtext=text='Provided by MUAAZ IQBAL':fontcolor=white:fontsize=16:x=20:y=150:shadowcolor=black:shadowx=2:shadowy=2[v_base]; \
+           [v_base][logo]overlay=20:10" \
+          -af "asetrate=44100*1.02,aresample=44100" \
+          -c:v libx264 -preset superfast -tune zerolatency \
+          -crf 26 -maxrate 2500k -bufsize 5000k \
+          -pix_fmt yuv420p -g 120 \
+          -c:a aac -b:a 128k \
+          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
           -i "$STREAM_URL" -i "$LOGO_URL" \
           -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
           -c:v libx264 -preset veryfast \
           -crf 23 -maxrate 3000k -bufsize 6000k \
           -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh" || true
+          -f flv "rtmp://a.rtmp.youtube.com/live2/x4xr-fr4e-57az-d095-bqbm" || true
