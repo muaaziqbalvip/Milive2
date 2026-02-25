@@ -20,20 +20,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: 3. Start Professional Streaming (Clean Logic)
+      - name: 3. Start Professional Streaming
         run: |
-          # Link ko bilkul saaf karne ke liye SED aur XARGS ka istemal
+          # Link cleaning logic to remove dots or hidden spaces
           RAW_URL=$(grep -v '^#' playlist.m3u | head -n 1)
-          STREAM_URL=$(echo "$RAW_URL" | sed 's/[[:space:]]//g' | tr -d '\r\n')
-          
+          STREAM_URL=$(echo "$RAW_URL" | tr -d '\r\n' | xargs)
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "Final Clean Link: $STREAM_URL"
+          echo "Starting stream for Muaaz Iqbal: $STREAM_URL"
 
-          # FFmpeg command with clean variables
-          timeout 5.8h ffmpeg -re \
-          -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
-          -stream_loop -1 \
+          # Single line command to avoid 'command not found' errors
+          timeout 5.8h ffmpeg -re -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36" -i "$STREAM_URL" -i "$LOGO_URL" -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[bg];[1:v]scale=200:-1[logo];[bg][logo]overlay=10:10" -af "asetrate=44100*1.02,aresample=44100" -c:v libx264 -preset veryfast -crf 25 -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
           -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
           -i "$STREAM_URL" -i "$LOGO_URL" \
           -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[bg];[1:v]scale=200:-1[logo];[bg][logo]overlay=10:10" \
