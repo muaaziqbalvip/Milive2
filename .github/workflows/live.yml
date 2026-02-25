@@ -20,20 +20,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: 3. Start Professional Streaming (Stable & Clean Link)
+      - name: 3. Start Professional Streaming (Clean Logic)
         run: |
-          # tr -d '\r' se link ke aakhir ke faltu characters khatam ho jayenge
-          STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1 | tr -d '\r' | xargs)
+          # Link ko bilkul saaf karne ke liye SED aur XARGS ka istemal
+          RAW_URL=$(grep -v '^#' playlist.m3u | head -n 1)
+          STREAM_URL=$(echo "$RAW_URL" | sed 's/[[:space:]]//g' | tr -d '\r\n')
+          
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "MiTV is launching clean link: $STREAM_URL"
+          echo "Final Clean Link: $STREAM_URL"
 
+          # FFmpeg command with clean variables
           timeout 5.8h ffmpeg -re \
           -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
           -stream_loop -1 \
           -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
           -i "$STREAM_URL" -i "$LOGO_URL" \
           -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[bg];[1:v]scale=200:-1[logo];[bg][logo]overlay=10:10" \
+          -af "asetrate=44100*1.02,aresample=44100" \
+          -c:v libx264 -preset veryfast \
+          -crf 23 -maxrate 3000k -bufsize 6000k \
+          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
+          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
           -af "asetrate=44100*1.02,aresample=44100" \
           -c:v libx264 -preset veryfast \
           -crf 23 -maxrate 3000k -bufsize 6000k \
