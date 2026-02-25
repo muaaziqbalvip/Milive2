@@ -20,17 +20,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: 3. Start Professional Streaming (Stable Mode)
+      - name: 3. Start Professional Streaming (Stable & Clean Link)
         run: |
-          STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1)
+          # tr -d '\r' se link ke aakhir ke faltu characters khatam ho jayenge
+          STREAM_URL=$(grep -v '^#' playlist.m3u | head -n 1 | tr -d '\r' | xargs)
           LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
           
-          echo "MiTV Network is launching stable stream: $STREAM_URL"
+          echo "MiTV is launching clean link: $STREAM_URL"
 
-          # 1. crop=iw:ih-40:0:40 -> Upar se 40 pixels crop (Stability ke liye)
-          # 2. asetrate=44100*1.02 -> Audio pitch halki si tabdeel
-          # 3. overlay=10:10 -> Logo Top-Left corner mein
-          
           timeout 5.8h ffmpeg -re \
           -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
           -stream_loop -1 \
@@ -41,4 +38,4 @@ jobs:
           -c:v libx264 -preset veryfast \
           -crf 23 -maxrate 3000k -bufsize 6000k \
           -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh" || true
+          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
