@@ -1,8 +1,8 @@
-name: MiTV SADA Streamer
+name: MiTV SADA Streamer (Deep Detection)
 
 on:
   schedule:
-    - cron: '0 */5 * * *' # Har 5 ghante baad auto-restart ke liye
+    - cron: '0 */5 * * *'
   workflow_dispatch:
     inputs:
       stream_url:
@@ -23,19 +23,21 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ffmpeg
 
-    - name: 2. Start Live Stream (Dynamic Inputs)
+    - name: 2. Start Live Stream (Deep Segment Detection)
       run: |
         LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
-        
-        # Inputs ko variables mein save karna
         INPUT_URL="${{ github.event.inputs.stream_url }}"
         INPUT_KEY="${{ github.event.inputs.stream_key }}"
         
-        echo "Starting MiTV Stream..."
-        echo "Source: $INPUT_URL"
+        echo "Starting MiTV Deep Stream Engine..."
 
         # timeout 5.8h taake 6h limit se pehle safely restart ho sake
-        timeout 5.8h ffmpeg -re -stream_loop -1 -user_agent "Mozilla/5.0" \
+        # Is command mein 'reconnect' aur 'fflags' ko deep detection ke liye set kiya hai
+        timeout 5.8h ffmpeg -re -stream_loop -1 \
+        -loglevel warning \
+        -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 2 \
+        -fflags +genpts+igndts+discardcorrupt+nobuffer \
+        -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
         -i "$INPUT_URL" -i "$LOGO_URL" \
         -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
         -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
