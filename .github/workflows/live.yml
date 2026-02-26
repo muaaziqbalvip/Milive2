@@ -1,46 +1,26 @@
-name: MiTV_24-7_NonStop_Engine
+name: MiTV SADA Streamer
 
 on:
-  schedule:
-    - cron: '0 */5 * * *'
-  push:
-    paths:
-      - 'playlist.m3u'
   workflow_dispatch:
+    inputs:
+      stream_url:
+        description: 'M3U8 Link yahan paste karein'
+        required: true
+        default: ''
 
 jobs:
-  MiTV_Cloud_Stream:
+  mitv_live:
     runs-on: ubuntu-latest
     steps:
-      - name: 1. Code Checkout
-        uses: actions/checkout@v3
+    - name: 1. Install FFmpeg
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
 
-      - name: 2. Install FFmpeg Core
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-      - name: 3. Start Professional Streaming
-        run: |
-          # Link cleaning logic to remove dots or hidden spaces
-          RAW_URL=$(grep -v '^#' playlist.m3u | head -n 1)
-          STREAM_URL=$(echo "$RAW_URL" | tr -d '\r\n' | xargs)
-          LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
-          
-          echo "Starting stream for Muaaz Iqbal: $STREAM_URL"
-
-          # Single line command to avoid 'command not found' errors
-          timeout 5.8h ffmpeg -re -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36" -i "$STREAM_URL" -i "$LOGO_URL" -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[bg];[1:v]scale=200:-1[logo];[bg][logo]overlay=10:10" -af "asetrate=44100*1.02,aresample=44100" -c:v libx264 -preset veryfast -crf 25 -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
-          -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-          -i "$STREAM_URL" -i "$LOGO_URL" \
-          -filter_complex "[0:v]crop=iw:ih-40:0:40,scale=1280:720[bg];[1:v]scale=200:-1[logo];[bg][logo]overlay=10:10" \
-          -af "asetrate=44100*1.02,aresample=44100" \
-          -c:v libx264 -preset veryfast \
-          -crf 23 -maxrate 3000k -bufsize 6000k \
-          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/ffw8-ay98-j677-qx9h-3g4g" || true
-          -af "asetrate=44100*1.02,aresample=44100" \
-          -c:v libx264 -preset veryfast \
-          -crf 23 -maxrate 3000k -bufsize 6000k \
-          -pix_fmt yuv420p -g 50 -c:a aac -b:a 128k -ar 44100 \
-          -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh" || true
+    - name: 2. Start Live Stream (Unlimited Loop)
+      run: |
+        # -stream_loop -1 ka matlab hai video/link kabhi band nahi hoga
+        ffmpeg -re -stream_loop -1 -user_agent "Mozilla/5.0" -i "${{ github.event.inputs.stream_url }}" \
+        -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
+        -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
+        -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh"
