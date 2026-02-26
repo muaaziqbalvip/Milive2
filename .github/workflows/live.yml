@@ -1,26 +1,51 @@
-name: MiTV SADA Streamer
+name: MiTV SADA Streamer (Smooth Switch)
 
 on:
+  schedule:
+    - cron: '0 */5 * * *'
+  push:
+    paths:
+      - 'playlist.m3u' # Jab bhi aap file update karenge, stream refresh ho sakti hai
   workflow_dispatch:
     inputs:
-      stream_url:
-        description: 'M3U8 Link yahan paste karein'
+      stream_key:
+        description: 'YouTube Stream Key'
         required: true
-        default: ''
 
 jobs:
   mitv_live:
     runs-on: ubuntu-latest
     steps:
-    - name: 1. Install FFmpeg
+    - name: 1. Code Checkout
+      uses: actions/checkout@v3
+
+    - name: 2. Install FFmpeg
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
 
-    - name: 2. Start Live Stream (Unlimited Loop)
+    - name: 3. Start Smooth Streaming Engine
       run: |
-        # -stream_loop -1 ka matlab hai video/link kabhi band nahi hoga
-        ffmpeg -re -stream_loop -1 -user_agent "Mozilla/5.0" -i "${{ github.event.inputs.stream_url }}" \
-        -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
-        -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
-        -f flv "rtmp://a.rtmp.youtube.com/live2/buhp-wyep-qsw6-w1d1-fvuh"
+        LOGO_URL="https://i.ibb.co/fzsgPwYG/2-1.png"
+        INPUT_KEY="${{ github.event.inputs.stream_key }}"
+        
+        # Smooth Switching Logic:
+        # Hum ek infinite loop chalayenge jo har dafa playlist.m3u se naya link uthayega
+        # Isse stream disconnect nahi hogi, sirf link switch hoga.
+
+        timeout 5.8h bash -c '
+        while true; do
+          # playlist.m3u se taaza link read karna
+          CURRENT_URL=$(grep -v "^#" playlist.m3u | head -n 1 | tr -d "\r")
+          echo "Now Streaming: $CURRENT_URL"
+
+          ffmpeg -re -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 \
+          -user_agent "Mozilla/5.0" -i "$CURRENT_URL" -i "'$LOGO_URL'" \
+          -filter_complex "[1:v]scale=200:-1[logo];[0:v][logo]overlay=10:10" \
+          -c:v libx264 -preset ultrafast -b:v 2500k -maxrate 3000k -bufsize 6000k \
+          -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
+          -f flv "rtmp://a.rtmp.youtube.com/live2/'$INPUT_KEY'"
+          
+          echo "Link changed or connection lost, restarting in 2 seconds..."
+          sleep 2
+        done' || true
