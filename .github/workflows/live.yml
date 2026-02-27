@@ -1,4 +1,4 @@
-name: MiTV_Simple_Firebase_Text_Engine
+name: MiTV_Pro_Firebase_Engine
 
 on:
   workflow_dispatch:
@@ -26,7 +26,7 @@ jobs:
           sudo apt-get install -y ffmpeg python3-pip
           pip3 install requests pytz
 
-      - name: Start Simple Streaming
+      - name: Start MiTV Smart Engine
         env:
           FB_URL: "https://ramadan-2385b-default-rtdb.firebaseio.com"
           VIDEO: "${{ github.event.inputs.video_url }}"
@@ -39,53 +39,61 @@ jobs:
           import os
           import subprocess
 
-          # Input Data
+          # Configuration
           VIDEO_IN = os.getenv('VIDEO')
           AUDIO_IN = os.getenv('AUDIO')
           STREAM_KEY = os.getenv('KEY')
           DATABASE_URL = os.getenv('FB_URL')
-
-          def get_firebase_text():
-              try:
-                  # Firebase se sirf text uthane ke liye
-                  r = requests.get(f"{DATABASE_URL}/streaming_control.json")
-                  data = r.json()
-                  return data.get('scroll_text', 'MiTV Network Live')
-              except:
-                  return "MiTV Network - Connection Error"
-
-          # Logo Link
           LOGO = "https://i.ibb.co/fzsgPwYG/2-1.png"
 
-          print("Starting Simple Stream with Firebase Text Logic...")
+          last_cmd_id = ""
+          process = None
 
-          # FFmpeg Command
-          # 1. Video aur Audio ko mix aur loop kiya
-          # 2. Golden Patti (Box) niche lagayi
-          # 3. Logo aur Lahore Time lagaya
-          # 4. Firebase se text lekar scroll kiya
-          
-          current_text = get_firebase_text()
-          
-          ffmpeg_cmd = [
-              "ffmpeg", "-re",
-              "-stream_loop", "-1", "-i", VIDEO_IN,
-              "-stream_loop", "-1", "-i", AUDIO_IN,
-              "-i", LOGO,
-              "-filter_complex",
-              f"[0:v]scale=1280:720[main];" \
-              f"[main]drawbox=y=ih-50:h=50:w=iw:color=0xD4AF37@0.9:t=fill[patti];" \
-              f"[patti]drawtext=text='{current_text}':x=w-mod(t*100\,w+tw):y=h-40:fontsize=30:fontcolor=black[marquee];" \
-              f"[marquee][2:v]overlay=10:10[with_logo];" \
-              f"[with_logo]drawtext=text='%{{localtime\\:%d-%m-%Y  %H\\\\\\:%M\\\\\\:%S}}':x=15:y=160:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.4[v]",
-              "-map", "[v]", "-map", "1:a",
-              "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2500k",
-              "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
-              "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
-          ]
+          def get_firebase_data():
+              try:
+                  r = requests.get(f"{DATABASE_URL}/streaming_control.json")
+                  return r.json()
+              except:
+                  return None
 
-          # Execute FFmpeg
-          os.environ['TZ'] = 'Asia/Karachi'
-          subprocess.run(ffmpeg_cmd)
+          print("MiTV Smart Engine Started. Waiting for Firebase signal...")
+
+          while True:
+              data = get_firebase_data()
+              if data:
+                  current_text = data.get('scroll_text', 'MiTV Network Live')
+                  current_cmd_id = str(data.get('command_id', '0'))
+
+                  # Agar Admin Panel se Update dabaya gaya (command_id change hui)
+                  # Ya agar FFmpeg kisi wajah se band ho gaya
+                  if current_cmd_id != last_cmd_id or (process and process.poll() is not None):
+                      print(f"Update Detected: Restarting Stream with new text...")
+                      last_cmd_id = current_cmd_id
+                      
+                      if process:
+                          process.terminate() # Purana stream band karein
+                          time.sleep(2)
+
+                      ffmpeg_cmd = [
+                          "ffmpeg", "-re",
+                          "-stream_loop", "-1", "-i", VIDEO_IN,
+                          "-stream_loop", "-1", "-i", AUDIO_IN,
+                          "-i", LOGO,
+                          "-filter_complex",
+                          f"[0:v]scale=1280:720[main];" \
+                          f"[main]drawbox=y=ih-50:h=50:w=iw:color=0xD4AF37@0.9:t=fill[patti];" \
+                          f"[patti]drawtext=text='{current_text}':x=w-mod(t*100\,w+tw):y=h-40:fontsize=30:fontcolor=black[marquee];" \
+                          f"[marquee][2:v]overlay=10:10[with_logo];" \
+                          f"[with_logo]drawtext=text='%{{localtime\\:%d-%m-%Y  %H\\\\\\:%M\\\\\\:%S}}':x=15:y=160:fontsize=22:fontcolor=white:box=1:boxcolor=black@0.4[v]",
+                          "-map", "[v]", "-map", "1:a",
+                          "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2500k",
+                          "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
+                          "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
+                      ]
+
+                      os.environ['TZ'] = 'Asia/Karachi'
+                      process = subprocess.Popen(ffmpeg_cmd) # Naya stream start karein
+              
+              time.sleep(15) # Har 15 second baad Firebase check karein
           EOF
           python3 engine.py
