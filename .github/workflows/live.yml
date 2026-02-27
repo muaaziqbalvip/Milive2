@@ -18,7 +18,7 @@ jobs:
           sudo apt-get install -y ffmpeg python3-pip
           pip3 install requests
 
-      - name: MiTV Core Streaming Engine
+      - name: MiTV Core Streaming Engine (Deep Detection)
         env:
           FB_URL: "https://ramadan-2385b-default-rtdb.firebaseio.com"
         run: |
@@ -46,55 +46,53 @@ jobs:
                   pass
 
           last_command_id = ""
+          process = None
 
           while True:
-              print("Checking for updates from MiTV Admin...")
               config = get_config()
               update_heartbeat()
 
               if config and config.get('stream_url') and config.get('stream_key'):
                   curr_id = str(config.get('command_id'))
                   
-                  if curr_id != last_command_id:
-                      print(f"New Configuration Detected! Starting Stream...")
+                  # Agar naya link aaya ya purana process band ho gaya
+                  if curr_id != last_command_id or (process and process.poll() is not None):
+                      print(f"Update Detected or Stream Stopped. Initializing...")
                       last_command_id = curr_id
                       
-                      # Settings extract karein
                       url = config['stream_url']
                       key = config['stream_key']
                       logo = config.get('logo_url', 'https://i.ibb.co/fzsgPwYG/2-1.png')
-                      text = config.get('scroll_text', 'MiTV Network - Quality Service')
+                      text = config.get('scroll_text', 'MiTV Network Live')
                       color = config.get('text_color', 'white').replace('#', '0x')
 
-                      # FFmpeg Complex Filter Logic (Logo + Scrolling Text)
-                      # [0:v] input stream
-                      # [1:v] logo
-                      # drawtext niche marquee banata hai
-                      
+                      # FFmpeg Command with Bitrate Fix & Deep Probing
                       ffmpeg_cmd = [
-                          "ffmpeg", "-re", "-reconnect", "1", "-reconnect_at_eof", "1",
-                          "-reconnect_streamed", "1", "-reconnect_delay_max", "5",
-                          "-stream_loop", "-1",
+                          "ffmpeg", "-hide_banner", "-loglevel", "info",
+                          "-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2",
+                          "-probesize", "10M", "-analyzeduration", "10M",
+                          "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                           "-i", url,
                           "-i", logo,
                           "-filter_complex", 
-                          f"[1:v]scale=150:-1[l];" \
-                          f"[0:v][l]overlay=10:10[bg];" \
-                          f"[bg]drawtext=text='{text}':x=w-mod(t*100\,w+tw):y=h-50:fontsize=32:fontcolor={color}:box=1:boxcolor=black@0.5:boxborderw=10[v]",
-                          "-map", "[v]", "-map", "0:a",
-                          "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2500k",
-                          "-maxrate", "3000k", "-bufsize", "6000k", "-pix_fmt", "yuv420p",
-                          "-g", "60", "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
+                          f"[1:v]scale=180:-1[logo_scaled];" \
+                          f"[0:v]drawbox=y=ih-60:h=60:w=iw:color=black@0.6:t=fill[bg_bar];" \
+                          f"[bg_bar][logo_scaled]overlay=10:10[with_logo];" \
+                          f"[with_logo]drawtext=text='{text}':x=w-mod(t*120\,w+tw):y=h-45:fontsize=35:fontcolor={color}:fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf[v]",
+                          "-map", "[v]", "-map", "0:a?",
+                          "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2500k", "-maxrate", "3000k", "-bufsize", "6000k",
+                          "-pix_fmt yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k", "-ar", "44100",
                           "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{key}"
                       ]
 
-                      # Purana FFmpeg kill karke naya chalayein agar tabdeeli ho
-                      subprocess.Popen(["pkill", "-9", "ffmpeg"])
-                      time.sleep(2)
+                      if process:
+                          process.terminate()
+                          time.sleep(2)
+                      
                       process = subprocess.Popen(ffmpeg_cmd)
-                      print("Stream is Live!")
+                      print("Streaming Started - Monitoring Bitrate...")
 
-              time.sleep(30) # Har 30 sec baad Firebase check karein
+              time.sleep(15) # Check Firebase every 15 seconds
 
           EOF
           python3 engine.py
