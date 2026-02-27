@@ -1,4 +1,4 @@
-name: MiTV_Ultimate_Final_Fix
+name: MiTV_Final_Pro_Engine
 
 on:
   workflow_dispatch:
@@ -58,6 +58,8 @@ jobs:
               data = get_firebase_data()
               if data:
                   txt = data.get('scroll_text', 'MiTV Network Live')
+                  # Escape single quotes for FFmpeg
+                  txt = txt.replace("'", "")
                   cmd_id = str(data.get('command_id', '0'))
 
                   if cmd_id != last_cmd_id or (process and process.poll() is not None):
@@ -66,19 +68,17 @@ jobs:
                           process.terminate()
                           time.sleep(3)
                       
-                      # FFmpeg Filter with Fixed Syntax
-                      # Logo, Stylish Brown Clock (12h), Date Box, Golden Patti
-                      filter_complex = (
-                          f"[0:v]scale=1280:720[bg];"
-                          f"[2:v]scale=110:-1[logo_small];"
-                          f"[bg][logo_small]overlay=25:25[v1];"
-                          f"[v1]drawbox=x=25:y=105:w=160:h=45:color=0x3E2723@0.9:t=fill[v2];"
-                          f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=35:y=118:fontsize=20:fontcolor=white[v3];"
-                          f"[v3]drawbox=x=25:y=155:w=160:h=35:color=0x5D4037@0.8:t=fill[v4];"
-                          f"[v4]drawtext=text='%{{localtime\\:%d %b %Y}}':x=40:y=165:fontsize=16:fontcolor=0xD4AF37[v5];"
-                          f"[v5]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti];"
-                          f"[patti]drawtext=text='{txt}':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black"
-                          f":fontfile='/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'[v]"
+                      # Fixed Complex Filter String
+                      f_comp = (
+                          " [0:v]scale=1280:720[bg]; "
+                          " [2:v]scale=110:-1[logo_small]; "
+                          " [bg][logo_small]overlay=25:25[v1]; "
+                          " [v1]drawbox=x=25:y=105:w=160:h=45:color=0x3E2723@0.9:t=fill[v2]; "
+                          " [v2]drawtext=text='%{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}':x=35:y=118:fontsize=20:fontcolor=white[v3]; "
+                          " [v3]drawbox=x=25:y=155:w=160:h=35:color=0x5D4037@0.8:t=fill[v4]; "
+                          " [v4]drawtext=text='%{localtime\\:%d %b %Y}':x=40:y=165:fontsize=16:fontcolor=0xD4AF37[v5]; "
+                          " [v5]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti]; "
+                          " [patti]drawtext=text='" + txt + "':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black:fontfile=/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf[v] "
                       )
 
                       ffmpeg_cmd = [
@@ -86,7 +86,7 @@ jobs:
                           "-stream_loop", "-1", "-i", VIDEO_IN,
                           "-stream_loop", "-1", "-i", AUDIO_IN,
                           "-i", LOGO,
-                          "-filter_complex", filter_complex,
+                          "-filter_complex", f_comp,
                           "-map", "[v]", "-map", "1:a",
                           "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2500k",
                           "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
@@ -95,7 +95,7 @@ jobs:
                       
                       os.environ['TZ'] = 'Asia/Karachi'
                       process = subprocess.Popen(ffmpeg_cmd)
-                      print("Engine Status: Stream Updated Successfully")
+                      print("Engine Status: MiTV Stream Started with Fixed Logic")
 
               time.sleep(15)
           EOF
