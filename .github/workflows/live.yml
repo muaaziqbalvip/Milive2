@@ -1,4 +1,4 @@
-name: MiTV_Final_Stable_24-7
+name: MiTV_Pro_Global_Engine
 
 on:
   workflow_dispatch:
@@ -12,13 +12,10 @@ on:
       stream_key:
         description: 'YouTube Stream Key'
         required: true
-  schedule:
-    - cron: '0 */5 * * *'
 
 jobs:
   run-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -26,10 +23,10 @@ jobs:
       - name: Install Professional Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-pip fonts-noto-color-emoji
+          sudo apt-get install -y ffmpeg python3-pip fonts-noto-color-emoji fonts-noto-cjk fonts-nafees
           pip3 install requests pytz
 
-      - name: Start MiTV Smart Engine
+      - name: Start MiTV Ultimate Engine
         env:
           FB_URL: "https://ramadan-2385b-default-rtdb.firebaseio.com"
           VIDEO: "${{ github.event.inputs.video_url }}"
@@ -48,60 +45,52 @@ jobs:
           DATABASE_URL = os.getenv('FB_URL')
           LOGO = "https://i.ibb.co/fzsgPwYG/2-1.png"
 
-          # Variable names fixed to avoid NameError
           last_cmd_id = ""
           process = None
 
           def get_firebase_data():
               try:
-                  r = requests.get(f"{DATABASE_URL}/streaming_control.json", timeout=10)
+                  r = requests.get(f"{DATABASE_URL}/streaming_control.json")
                   return r.json()
               except: return None
-
-          print("MiTV Smart Engine Started...")
 
           while True:
               data = get_firebase_data()
               if data:
-                  current_text = data.get('scroll_text', 'MiTV Network Live').replace("'", "")
-                  current_cmd_id = str(data.get('command_id', '0'))
+                  txt = data.get('scroll_text', 'MiTV Network Live')
+                  cmd_id = str(data.get('command_id', '0'))
 
-                  # Condition fixed: using last_cmd_id consistently
-                  if current_cmd_id != last_cmd_id or (process and process.poll() is not None):
-                      print(f"Signal Received: Starting/Restarting Stream...")
-                      last_cmd_id = current_cmd_id
+                  if cmd_id != last_cmd_id or (process and process.poll() is not None):
+                      last_cmd_id = cmd_id
+                      if process: process.terminate()
                       
-                      if process:
-                          process.terminate()
-                          time.sleep(5)
-
-                      # Simple and clean filter to avoid "Invalid Argument"
-                      f_script = (
-                          f"[0:v]scale=1280:720[bg];"
-                          f"[2:v]scale=110:-1[logo];"
-                          f"[bg][logo]overlay=25:25[v1];"
-                          f"[v1]drawbox=x=25:y=105:w=175:h=45:color=0x3E2723@0.9:t=fill[v2];"
-                          f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=35:y=118:fontsize=20:fontcolor=white[v3];"
-                          f"[v3]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti];"
-                          f"[patti]drawtext=text='{current_text}':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black[v]"
-                      )
-
+                      # FFmpeg Complex Filter Logic:
+                      # [l] Logo Scaling
+                      # [patti] Golden Bar at bottom
+                      # [clock] Brown Box with 12h Time
+                      # [date] Stylish Box for Date
+                      
                       ffmpeg_cmd = [
-                          "ffmpeg", "-re", "-hide_banner",
-                          "-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
-                          "-stream_loop", "-1", "-i", VIDEO_IN,
-                          "-stream_loop", "-1", "-i", AUDIO_IN,
-                          "-i", LOGO,
-                          "-filter_complex", f_script,
+                          "ffmpeg", "-re", "-stream_loop", "-1", "-i", VIDEO_IN,
+                          "-stream_loop", "-1", "-i", AUDIO_IN, "-i", LOGO,
+                          "-filter_complex",
+                          f"[0:v]scale=1280:720[bg];" \
+                          f"[2:v]scale=120:-1[logo];" \
+                          f"[bg][logo]overlay=20:20[v1];" \
+                          f"[v1]drawbox=x=20:y=110:w=140:h=45:color=0x5D4037@0.9:t=fill[v2];" \
+                          f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=30:y=122:fontsize=18:fontcolor=white[v3];" \
+                          f"[v3]drawbox=x=20:y=160:w=140:h=35:color=0x3E2723@0.8:t=fill[v4];" \
+                          f"[v4]drawtext=text='%{{localtime\\:%d %b %Y}}':x=35:y=170:fontsize=16:fontcolor=0xD4AF37[v5];" \
+                          f"[v5]drawbox=y=ih-50:h=50:w=iw:color=0xD4AF37@1:t=fill[patti];" \
+                          f"[patti]drawtext=text='{txt}':x=w-mod(t*90\,w+tw):y=h-38:fontsize=28:fontcolor=black:fontfile='/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'[v]",
                           "-map", "[v]", "-map", "1:a",
-                          "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2800k",
-                          "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
-                          "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
+                          "-c:v", libx264, "-preset", "ultrafast", "-b:v", "2800k", "-pix_fmt", "yuv420p",
+                          "-g", "60", "-c:a", "aac", "-b:a", "128k", "-f", "flv", 
+                          f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
                       ]
-
+                      
                       os.environ['TZ'] = 'Asia/Karachi'
                       process = subprocess.Popen(ffmpeg_cmd)
-              
               time.sleep(15)
           EOF
           python3 engine.py
