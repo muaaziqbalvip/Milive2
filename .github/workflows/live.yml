@@ -1,4 +1,4 @@
-name: MiTV_24-7_Final_Pro
+name: MiTV_Pro_24-7_Stable
 
 on:
   workflow_dispatch:
@@ -12,22 +12,25 @@ on:
       stream_key:
         description: 'YouTube Stream Key'
         required: true
+  # Har 5 ghante baad khud restart hoga taake 6-hour limit hit na ho
+  schedule:
+    - cron: '0 */5 * * *'
 
 jobs:
   run-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 1440
+    timeout-minutes: 360 # 6 hours max limit
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Install System Tools
+      - name: Install Professional Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-pip fonts-noto-color-emoji fonts-nafees
+          sudo apt-get install -y ffmpeg python3-pip fonts-noto-color-emoji
           pip3 install requests pytz
 
-      - name: MiTV Core Engine
+      - name: Start MiTV Smart Engine
         env:
           FB_URL: "https://ramadan-2385b-default-rtdb.firebaseio.com"
           VIDEO: "${{ github.event.inputs.video_url }}"
@@ -44,61 +47,59 @@ jobs:
           AUDIO_IN = os.getenv('AUDIO')
           STREAM_KEY = os.getenv('KEY')
           DATABASE_URL = os.getenv('FB_URL')
-          LOGO_URL = "https://i.ibb.co/fzsgPwYG/2-1.png"
+          LOGO = "https://i.ibb.co/fzsgPwYG/2-1.png"
 
-          last_id = ""
+          last_cmd_id = ""
           process = None
 
-          def get_data():
+          def get_firebase_data():
               try:
                   r = requests.get(f"{DATABASE_URL}/streaming_control.json", timeout=10)
                   return r.json()
               except: return None
 
-          while True:
-              data = get_data()
-              if data:
-                  txt = data.get('scroll_text', 'MiTV Network LIVE').replace("'", "")
-                  curr_id = str(data.get('command_id', '0'))
+          print("MiTV Smart Engine Started...")
 
-                  # Agar Admin se update aaye ya process band ho jaye to restart karein
-                  if curr_id != last_id or (process and process.poll() is not None):
-                      print("Updating Stream...")
-                      last_id = curr_id
+          while True:
+              data = get_firebase_data()
+              if data:
+                  current_text = data.get('scroll_text', 'MiTV Network Live').replace("'", "")
+                  current_cmd_id = str(data.get('command_id', '0'))
+
+                  if current_cmd_id != last_id or (process and process.poll() is not None):
+                      last_id = current_cmd_id
                       if process: 
                           process.terminate()
                           time.sleep(3)
-                      
-                      # Filter Script Create Karein (Parsing Error Fix)
-                      with open("filter.txt", "w") as f:
-                          f.write(
-                              f"[0:v]scale=1280:720[bg];"
-                              f"[2:v]scale=110:-1[logo];"
-                              f"[bg][logo]overlay=25:25[v1];"
-                              f"[v1]drawbox=x=25:y=105:w=170:h=45:color=0x3E2723@0.9:t=fill[v2];"
-                              f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=35:y=118:fontsize=20:fontcolor=white[v3];"
-                              f"[v3]drawbox=x=25:y=155:w=170:h=35:color=0x5D4037@0.8:t=fill[v4];"
-                              f"[v4]drawtext=text='%{{localtime\\:%d %b %Y}}':x=40:y=165:fontsize=16:fontcolor=0xD4AF37[v5];"
-                              f"[v5]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti];"
-                              f"[patti]drawtext=text='{txt}':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black:fontfile=/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf[v]"
-                          )
+
+                      # FILTER SCRIPT: Logo top-left, Time uske niche professional box mein
+                      # Golden Patti niche scroll hogi
+                      filter_script = (
+                          f"[0:v]scale=1280:720[bg];"
+                          f"[2:v]scale=110:-1[logo];"
+                          f"[bg][logo]overlay=25:25[v1];"
+                          f"[v1]drawbox=x=25:y=105:w=170:h=45:color=0x3E2723@0.9:t=fill[v2];"
+                          f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=35:y=118:fontsize=20:fontcolor=white[v3];"
+                          f"[v3]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti];"
+                          f"[patti]drawtext=text='{current_text}':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black[v]"
+                      )
 
                       ffmpeg_cmd = [
                           "ffmpeg", "-re", "-hide_banner",
                           "-reconnect", "1", "-reconnect_at_eof", "1", "-reconnect_streamed", "1",
                           "-stream_loop", "-1", "-i", VIDEO_IN,
                           "-stream_loop", "-1", "-i", AUDIO_IN,
-                          "-i", LOGO_URL,
-                          "-filter_complex_script", "filter.txt",
+                          "-i", LOGO,
+                          "-filter_complex", filter_script,
                           "-map", "[v]", "-map", "1:a",
                           "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2800k",
                           "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
                           "-f", "flv", f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
                       ]
-                      
+
                       os.environ['TZ'] = 'Asia/Karachi'
                       process = subprocess.Popen(ffmpeg_cmd)
-
+              
               time.sleep(15)
           EOF
           python3 engine.py
