@@ -1,4 +1,4 @@
-name: MiTV_Pro_24-7_Stable
+name: MiTV_Final_Stable_24-7
 
 on:
   workflow_dispatch:
@@ -12,14 +12,13 @@ on:
       stream_key:
         description: 'YouTube Stream Key'
         required: true
-  # Har 5 ghante baad khud restart hoga taake 6-hour limit hit na ho
   schedule:
     - cron: '0 */5 * * *'
 
 jobs:
   run-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # 6 hours max limit
+    timeout-minutes: 360
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -49,6 +48,7 @@ jobs:
           DATABASE_URL = os.getenv('FB_URL')
           LOGO = "https://i.ibb.co/fzsgPwYG/2-1.png"
 
+          # Variable names fixed to avoid NameError
           last_cmd_id = ""
           process = None
 
@@ -66,19 +66,21 @@ jobs:
                   current_text = data.get('scroll_text', 'MiTV Network Live').replace("'", "")
                   current_cmd_id = str(data.get('command_id', '0'))
 
-                  if current_cmd_id != last_id or (process and process.poll() is not None):
-                      last_id = current_cmd_id
-                      if process: 
+                  # Condition fixed: using last_cmd_id consistently
+                  if current_cmd_id != last_cmd_id or (process and process.poll() is not None):
+                      print(f"Signal Received: Starting/Restarting Stream...")
+                      last_cmd_id = current_cmd_id
+                      
+                      if process:
                           process.terminate()
-                          time.sleep(3)
+                          time.sleep(5)
 
-                      # FILTER SCRIPT: Logo top-left, Time uske niche professional box mein
-                      # Golden Patti niche scroll hogi
-                      filter_script = (
+                      # Simple and clean filter to avoid "Invalid Argument"
+                      f_script = (
                           f"[0:v]scale=1280:720[bg];"
                           f"[2:v]scale=110:-1[logo];"
                           f"[bg][logo]overlay=25:25[v1];"
-                          f"[v1]drawbox=x=25:y=105:w=170:h=45:color=0x3E2723@0.9:t=fill[v2];"
+                          f"[v1]drawbox=x=25:y=105:w=175:h=45:color=0x3E2723@0.9:t=fill[v2];"
                           f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=35:y=118:fontsize=20:fontcolor=white[v3];"
                           f"[v3]drawbox=y=ih-55:h=55:w=iw:color=0xD4AF37@1:t=fill[patti];"
                           f"[patti]drawtext=text='{current_text}':x=w-mod(t*100,w+tw):y=h-42:fontsize=32:fontcolor=black[v]"
@@ -90,7 +92,7 @@ jobs:
                           "-stream_loop", "-1", "-i", VIDEO_IN,
                           "-stream_loop", "-1", "-i", AUDIO_IN,
                           "-i", LOGO,
-                          "-filter_complex", filter_script,
+                          "-filter_complex", f_script,
                           "-map", "[v]", "-map", "1:a",
                           "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2800k",
                           "-pix_fmt", "yuv420p", "-g", "60", "-c:a", "aac", "-b:a", "128k",
