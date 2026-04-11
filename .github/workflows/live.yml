@@ -1,96 +1,31 @@
-name: MiTV_Pro_Global_Engine
+name: MI AI ULTRA
 
 on:
+  push:
   workflow_dispatch:
-    inputs:
-      video_url:
-        description: 'Direct MP4 Video Link'
-        required: true
-      audio_url:
-        description: 'Direct Audio Link'
-        required: true
-      stream_key:
-        description: 'YouTube Stream Key'
-        required: true
 
 jobs:
-  run-stream:
+  run:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Install Professional Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg python3-pip fonts-noto-color-emoji fonts-noto-cjk fonts-nafees
-          pip3 install requests pytz
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-      - name: Start MiTV Ultimate Engine
+      - run: pip install -r requirements.txt
+
+      - name: Run Bot Loop
         env:
-          FB_URL: "https://ramadan-2385b-default-rtdb.firebaseio.com"
-          VIDEO: "${{ github.event.inputs.video_url }}"
-          AUDIO: "${{ github.event.inputs.audio_url }}"
-          KEY: "${{ github.event.inputs.stream_key }}"
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          cat << 'EOF' > engine.py
-          import requests
-          import time
-          import os
-          import subprocess
-
-          VIDEO_IN = os.getenv('VIDEO')
-          AUDIO_IN = os.getenv('AUDIO')
-          STREAM_KEY = os.getenv('KEY')
-          DATABASE_URL = os.getenv('FB_URL')
-          LOGO = "https://i.ibb.co/fzsgPwYG/2-1.png"
-
-          last_cmd_id = ""
-          process = None
-
-          def get_firebase_data():
-              try:
-                  r = requests.get(f"{DATABASE_URL}/streaming_control.json")
-                  return r.json()
-              except: return None
-
-          while True:
-              data = get_firebase_data()
-              if data:
-                  txt = data.get('scroll_text', 'MiTV Network Live')
-                  cmd_id = str(data.get('command_id', '0'))
-
-                  if cmd_id != last_cmd_id or (process and process.poll() is not None):
-                      last_cmd_id = cmd_id
-                      if process: process.terminate()
-                      
-                      # FFmpeg Complex Filter Logic:
-                      # [l] Logo Scaling
-                      # [patti] Golden Bar at bottom
-                      # [clock] Brown Box with 12h Time
-                      # [date] Stylish Box for Date
-                      
-                      ffmpeg_cmd = [
-                          "ffmpeg", "-re", "-stream_loop", "-1", "-i", VIDEO_IN,
-                          "-stream_loop", "-1", "-i", AUDIO_IN, "-i", LOGO,
-                          "-filter_complex",
-                          f"[0:v]scale=1280:720[bg];" \
-                          f"[2:v]scale=120:-1[logo];" \
-                          f"[bg][logo]overlay=20:20[v1];" \
-                          f"[v1]drawbox=x=20:y=110:w=140:h=45:color=0x5D4037@0.9:t=fill[v2];" \
-                          f"[v2]drawtext=text='%{{localtime\\:%I\\\\\\:%M\\\\\\:%S %p}}':x=30:y=122:fontsize=18:fontcolor=white[v3];" \
-                          f"[v3]drawbox=x=20:y=160:w=140:h=35:color=0x3E2723@0.8:t=fill[v4];" \
-                          f"[v4]drawtext=text='%{{localtime\\:%d %b %Y}}':x=35:y=170:fontsize=16:fontcolor=0xD4AF37[v5];" \
-                          f"[v5]drawbox=y=ih-50:h=50:w=iw:color=0xD4AF37@1:t=fill[patti];" \
-                          f"[patti]drawtext=text='{txt}':x=w-mod(t*90\,w+tw):y=h-38:fontsize=28:fontcolor=black:fontfile='/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf'[v]",
-                          "-map", "[v]", "-map", "1:a",
-                          "-c:v", libx264, "-preset", "ultrafast", "-b:v", "2800k", "-pix_fmt", "yuv420p",
-                          "-g", "60", "-c:a", "aac", "-b:a", "128k", "-f", "flv", 
-                          f"rtmp://a.rtmp.youtube.com/live2/{STREAM_KEY}"
-                      ]
-                      
-                      os.environ['TZ'] = 'Asia/Karachi'
-                      process = subprocess.Popen(ffmpeg_cmd)
-              time.sleep(15)
-          EOF
-          python3 engine.py
+          while true
+          do
+            python bot.py
+            sleep 5
+          done
