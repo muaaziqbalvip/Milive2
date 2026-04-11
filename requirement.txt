@@ -1,0 +1,17 @@
+# ╔══════════════════════════════════════════════════════╗
+# ║  MI AI PRO TITAN V20.0 — REQUIREMENTS               ║
+# ║  ORGANIZATION: MUSLIM ISLAM | MiTV Network           ║
+# ║  ARCHITECT: MUAAZ IQBAL                              ║
+# ╚══════════════════════════════════════════════════════╝
+
+# ── Core Telegram Bot Framework ──────────────────────────
+pyTelegramBotAPI==4.20.0
+
+# ── HTTP Requests ────────────────────────────────────────
+requests==2.31.0
+
+# ── Web Search ───────────────────────────────────────────
+duckduckgo-search==6.1.7
+
+# ── Utilities ────────────────────────────────────────────
+python-dotenv==1.0.1
