@@ -1,152 +1,164 @@
 import re
 import requests
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import asyncio
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.constants import ChatAction
 
 # --- CONFIGURATION ---
 TOKEN = "8328897413:AAEw05JlW3hLGaROkX_njjEqTFaQQMA_yO4"
 M3U_URL = "https://mitv-tan.vercel.app/api/m3u?user=MITV-94120"
-# GitHub Secrets ya Environment mein 'GROQ_API' lazmi add karen
-GROQ_API = os.getenv("GROQ_API")
+GROQ_API = os.getenv("GROQ_API") # GitHub Secrets mein lazmi add karen
 
+# Global storage
 channels_cache = []
 
 # ======================
-# 📥 M3U & LOGO PARSER
+# 📥 ADVANCED M3U PARSER
 # ======================
 def load_m3u():
     global channels_cache
-    print("🔄 Loading M3U Data with Logos...")
+    print("🔄 Parsing M3U and Extracting Logos...")
     try:
-        res = requests.get(M3U_URL, timeout=30)
-        lines = res.text.splitlines()
-        temp_channels = []
-        current = {}
+        response = requests.get(M3U_URL, timeout=30)
+        if response.status_code != 200:
+            print("❌ M3U URL not accessible.")
+            return
+
+        lines = response.text.splitlines()
+        temp_list = []
+        current_item = {}
 
         for line in lines:
             line = line.strip()
             if line.startswith("#EXTINF"):
-                # Channel Name and Logo Extraction
+                # Extracting Name
                 name_match = re.search(r',(.+)', line)
+                # Extracting Logo URL
                 logo_match = re.search(r'tvg-logo="(.+?)"', line)
-                
-                current = {
+                # Extracting Group/Category (Optional)
+                group_match = re.search(r'group-title="(.+?)"', line)
+
+                current_item = {
                     "name": name_match.group(1).strip() if name_match else "Unknown Channel",
-                    "logo": logo_match.group(1) if logo_match else None
+                    "logo": logo_match.group(1) if logo_match else "https://via.placeholder.com/300?text=No+Logo",
+                    "group": group_match.group(1) if group_match else "General"
                 }
             elif line.startswith("http"):
-                current["url"] = line
-                temp_channels.append(current)
-                current = {}
-        
-        channels_cache = temp_channels
-        print(f"✅ Loaded {len(channels_cache)} channels.")
+                current_item["url"] = line
+                temp_list.append(current_item)
+                current_item = {}
+
+        channels_cache = temp_list
+        print(f"✅ Loaded {len(channels_cache)} channels successfully!")
     except Exception as e:
-        print(f"❌ M3U Load Error: {e}")
+        print(f"❌ Error: {e}")
 
 # ======================
-# 🤖 MI AI (GROQ FIX)
+# 🤖 MI AI (DETAILED IDENTITY)
 # ======================
-def ai_chat(user_query):
+def mi_ai_response(user_text):
     if not GROQ_API:
-        return "⚠️ Groq API Key nahi mili. Meherbani karke GitHub Secrets check karen."
+        return "⚠️ Groq API Key is missing. Please set it in Environment Variables."
 
-    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROQ_API}",
         "Content-Type": "application/json"
     }
 
-    system_identity = (
+    # Aapki identity set kar di hai
+    system_prompt = (
         "Mera naam MI AI hai. Mujhe Muaaz Iqbal ne MiTV Network ke liye banaya hai. "
-        "Main MiTV Network ka official AI assistant hoon. Main user ko IPTV channels dhundne "
-        "aur technical sawalon mein madad karta hoon. Hamesha Roman Urdu/Hindi mein jawab do."
+        "Main MiTV Network ka official AI Assistant hoon. "
+        "Muaaz Iqbal ne mujhe isliye banaya hai taake main users ko IPTV channels aur technical help provide kar sakun. "
+        "Hamesha user se tameez se baat karo aur Roman Urdu/Hindi mein jawab do. "
+        "Agar koi channel ke baare mein puche to use kaho ke channel ka naam likh kar search kare."
     )
 
     payload = {
         "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": system_identity},
-            {"role": "user", "content": user_query}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text}
         ],
-        "temperature": 0.7
+        "temperature": 0.6
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"]
-        else:
-            return f"❌ AI Error: {response.status_code} - API key ya limit check karen."
-    except Exception as e:
-        return f"❌ Connection Error: {str(e)}"
+        res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=headers, json=payload, timeout=15)
+        return res.json()["choices"][0]["message"]["content"]
+    except:
+        return "Maaf kijiye, abhi mera brain thora thaka hua hai. Dobara koshish karen!"
 
 # ======================
-# 🚀 MESSAGE HANDLER
+# 🛰️ HANDLERS
 # ======================
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.message.text
-    if not query or query.startswith("/"): return
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not channels_cache:
+        load_m3u()
+    
+    msg = (
+        "👋 **Assalam-o-Alaikum!**\n\n"
+        "Main hoon **MI AI**, aapka personal MiTV assistant.\n"
+        "Mujhe **Muaaz Iqbal** ne **MiTV Network** ke liye create kiya hai.\n\n"
+        "🔹 **Channel Search:** Bas channel ka naam likhen.\n"
+        "🔹 **AI Chat:** Mere saath guptagu karen.\n\n"
+        "⚡ *Fast & Smooth Streaming!*"
+    )
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
-    # 1. Search Channels
-    search_query = query.lower()
-    matches = [ch for ch in channels_cache if search_query in ch['name'].lower()]
+async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text
+    if not user_input or user_input.startswith("/"):
+        return
 
-    if matches:
-        # 413 Error se bachne ke liye limit (Top 10)
-        top_matches = matches[:10]
+    # 1. Search Logic
+    search_results = [ch for ch in channels_cache if user_input.lower() in ch['name'].lower()]
+
+    if search_results:
+        # Avoid 413 error: limit to top 10 results
+        top_results = search_results[:10]
+        
+        # Displaying first result with Image/Logo
+        first = top_results[0]
         keyboard = []
         
-        for ch in top_matches:
+        for ch in top_results:
             keyboard.append([InlineKeyboardButton(f"📺 {ch['name']}", url=ch['url'])])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # Agar exact match ya pehla result logo wala hai to image bhejen
-        first_logo = top_matches[0].get('logo')
-        
-        if first_logo and first_logo.startswith("http"):
-            try:
-                await update.message.reply_photo(
-                    photo=first_logo,
-                    caption=f"🔍 Mujhe ye {len(matches)} channels mile hain. Top results niche hain:",
-                    reply_markup=reply_markup
-                )
-                return
-            except:
-                pass # Agar photo load na ho to simple text bhej dega
 
-        await update.message.reply_text(f"🔍 Mujhe {len(matches)} channels mile hain:", reply_markup=reply_markup)
+        caption = f"🔍 Mujhe `{len(search_results)}` channels mile hain.\n\n📌 **Top Result:** {first['name']}"
+        
+        try:
+            await update.message.reply_photo(
+                photo=first['logo'],
+                caption=caption,
+                reply_markup=reply_markup,
+                parse_mode="Markdown"
+            )
+        except:
+            # If photo fails, send text
+            await update.message.reply_text(caption, reply_markup=reply_markup, parse_mode="Markdown")
     
     else:
-        # 2. Use AI if no channel found
-        await update.message.reply_chat_action("typing")
-        ai_response = ai_chat(query)
-        await update.message.reply_text(f"🤖 **MI AI:**\n\n{ai_response}", parse_mode="Markdown")
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not channels_cache: load_m3u()
-    welcome = (
-        "👋 **Assalam-o-Alaikum!**\n\n"
-        "Main hoon **MI AI**, aapka MiTV Assistant.\n"
-        "Mujhe **Muaaz Iqbal** ne **MiTV Network** ke liye design kiya hai.\n\n"
-        "✨ **Main kya kar sakta hoon?**\n"
-        "1️⃣ Kisi bhi channel ka naam likhen (e.g. 'ARY', 'Star').\n"
-        "2️⃣ Koi bhi sawal pochen, main AI se jawab doon ga.\n\n"
-        "👇 Abhi koi channel search karen!"
-    )
-    await update.message.reply_text(welcome, parse_mode="Markdown")
+        # 2. AI Logic (if no channel found)
+        await update.message.reply_chat_action(ChatAction.TYPING)
+        ai_msg = mi_ai_response(user_input)
+        await update.message.reply_text(f"🤖 **MI AI:**\n\n{ai_msg}", parse_mode="Markdown")
 
 # ======================
-# 🛠️ RUN
+# ⚙️ MAIN RUNNER
 # ======================
 if __name__ == '__main__':
+    # Initial load
     load_m3u()
+    
     app = ApplicationBuilder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_all_messages))
     
-    print("🚀 MI AI Bot is active...")
+    print("✅ MI AI is now Online and Detailed!")
     app.run_polling()
