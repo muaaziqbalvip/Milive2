@@ -1,2 +1,6 @@
-python-telegram-bot==21.3
-requests==2.31.0
+# MiTV Network Bot Requirements
+# Founder: Muaaz Iqbal
+
+python-telegram-bot==20.8    # Telegram API se connect karne ke liye
+requests==2.31.0             # M3U file download aur Groq AI API ke liye
+python-dotenv==1.0.1         # BOT_TOKEN aur API keys ko secure rakhne ke liye
