@@ -4,7 +4,7 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = "BOT_TOKEN"
 M3U_URL = "https://mitv-tan.vercel.app/api/m3u?user=MITV-94120"
 
 GROQ_API = os.getenv("GROQ_API")
