@@ -1,135 +1,125 @@
 import re
 import requests
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8328897413:AAEw05JlW3hLGaROkX_njjEqTFaQQMA_yO4"
-
+TOKEN = os.getenv("BOT_TOKEN")
 M3U_URL = "https://mitv-tan.vercel.app/api/m3u?user=MITV-94120"
 
-categories = {}
+GROQ_API = os.getenv("GROQ_API")
 
-# =========================
+channels = []
+
+# ======================
 # 📥 M3U PARSER
-# =========================
+# ======================
 def load_m3u():
-    global categories
-    categories = {}
+    global channels
+    channels = []
 
     res = requests.get(M3U_URL, timeout=20)
     lines = res.text.splitlines()
 
-    current = None
+    current = {}
 
     for line in lines:
         line = line.strip()
 
-        if not line:
-            continue
-
         if line.startswith("#EXTINF"):
             name = re.search(r',(.+)', line)
-            group = re.search(r'group-title="(.+?)"', line)
+            logo = re.search(r'tvg-logo="(.+?)"', line)
 
             current = {
                 "name": name.group(1) if name else "Unknown",
-                "group": group.group(1) if group else "Other"
+                "logo": logo.group(1) if logo else None
             }
 
         elif line.startswith("http"):
-            if current:
-                current["url"] = line
+            current["url"] = line
+            channels.append(current)
 
-                cat = current["group"]
+# ======================
+# 📺 GRID VIEW (4 COLUMNS)
+# ======================
+def build_keyboard():
+    keyboard = []
+    row = []
 
-                if cat not in categories:
-                    categories[cat] = []
+    for i, ch in enumerate(channels):
 
-                categories[cat].append(current)
+        text = f"📺 {ch['name'][:12]}"
 
-# =========================
-# 📺 START MENU
-# =========================
+        row.append(InlineKeyboardButton(text, url=ch["url"]))
+
+        if len(row) == 4:
+            keyboard.append(row)
+            row = []
+
+    if row:
+        keyboard.append(row)
+
+    return InlineKeyboardMarkup(keyboard)
+
+# ======================
+# START
+# ======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     load_m3u()
 
-    keyboard = []
-
-    for cat in categories:
-        keyboard.append([
-            InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat|{cat}")
-        ])
+    # referral check
+    args = context.args
+    if args:
+        await update.message.reply_text("🔥 Welcome from MI AI Referral System")
 
     await update.message.reply_text(
-        "🔥 <b>MI IPTV BOT LIVE</b>\n\n📺 Select Category",
+        "📺 <b>MI TV LIVE BOT</b>\n\n👇 Select Channel",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=build_keyboard()
     )
 
-# =========================
-# 📂 CATEGORY HANDLER
-# =========================
-async def category(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+# ======================
+# 🔍 AI SEARCH (GROQ)
+# ======================
+def ai_search(query):
+    headers = {
+        "Authorization": f"Bearer {GROQ_API}",
+        "Content-Type": "application/json"
+    }
 
-    _, cat = query.data.split("|")
+    data = {
+        "model": "llama3-70b-8192",
+        "messages": [
+            {"role": "user", "content": query}
+        ]
+    }
 
-    keyboard = []
+    r = requests.post("https://api.groq.com/openai/v1/chat/completions",
+                      headers=headers, json=data)
 
-    for ch in categories.get(cat, []):
-        keyboard.append([
-            InlineKeyboardButton(f"📺 {ch['name']}", url=ch["url"])
-        ])
+    return r.json()["choices"][0]["message"]["content"]
 
-    keyboard.append([
-        InlineKeyboardButton("⬅️ Back", callback_data="back")
-    ])
+# ======================
+# MESSAGE HANDLER (SEARCH)
+# ======================
+async def search(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    await query.edit_message_text(
-        f"📂 <b>{cat}</b>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    query = update.message.text
 
-# =========================
-# 🔙 BACK
-# =========================
-async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    if query.startswith("/"):
+        return
 
-    keyboard = []
+    result = ai_search(f"Find IPTV channel or answer: {query}")
 
-    for cat in categories:
-        keyboard.append([
-            InlineKeyboardButton(f"📁 {cat}", callback_data=f"cat|{cat}")
-        ])
+    await update.message.reply_text(f"🤖 AI:\n{result}")
 
-    await query.edit_message_text(
-        "📺 <b>Select Category</b>",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# =========================
-# ROUTER
-# =========================
-async def router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-
-    if query.data.startswith("cat|"):
-        await category(update, context)
-    elif query.data == "back":
-        await back(update, context)
-
-# =========================
-# MAIN
-# =========================
+# ======================
+# RUN
+# ======================
 app = ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(router))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, search))
 
-app.run_polling(drop_pending_updates=True)
+app.run_polling()
