@@ -3,7 +3,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = "8328897413:AAEw05JlW3hLGaROkX_njjEqTFaQQMA_yO4"
 
 M3U_URL = "https://mitv-tan.vercel.app/api/m3u?user=MITV-94120"
 
