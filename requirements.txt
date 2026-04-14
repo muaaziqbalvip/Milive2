@@ -1,5 +1,4 @@
-python-telegram-bot[job-queue]
-requests
-aiohttp
-fuzzywuzzy
-python-Levenshtein
+python-telegram-bot==21.6
+aiohttp==3.9.5
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.25.1
