@@ -90,14 +90,14 @@ jobs:
 
           # ── Video list: URL|Title ──
           VIDEOS=(
-            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|FAJAR KA SUKOON"
-            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|SUKOON-E-ISHA"
-            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|ROH KI PYASS"
-            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|TSKEEN SE POUR"
-            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|SUCH KI TALWAR"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|SUKOON-E-ISHA"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|ROH KI PYASS"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|TSKEEN SE POUR"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|SUCH KI TALWAR"
           )
 
-          AD_URL="https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4"
+          AD_URL="https://muaaziqbalvip.github.io/Milive2/1.mp4"
           AD_TITLE="--- Special OFFER"
 
           TOTAL=${#VIDEOS[@]}
