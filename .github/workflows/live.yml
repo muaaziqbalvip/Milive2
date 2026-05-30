@@ -90,14 +90,14 @@ jobs:
 
           # ── Video list: URL|Title ──
           VIDEOS=(
-            "https://www.dropbox.com/scl/fi/9ww1sn46oye6cngzyc8o4/videoplayback.mp4?rlkey=1v2k1ycmut6hd35kmh6hbyr5c&st=uq6wpc77&raw=1|FAJAR KA SUKOON"
-            "https://www.dropbox.com/scl/fi/uxe9umapmxmstarddh7lw/videoplayback-1.mp4?rlkey=zlaxt727rcwadvb78difhlh42&st=277evwb2&raw=1|SUKOON-E-ISHA"
-            "https://www.dropbox.com/scl/fi/o7kv0awlcaqq44oav086a/videoplayback-2.mp4?rlkey=0ce4xwrib0p3anqq85rlb88as&st=qwetne2j&raw=1|ROH KI PYASS"
-            "https://www.dropbox.com/scl/fi/m2aiuxgf9ufobe0g9r3i8/videoplayback-3.mp4?rlkey=kugecfm95gwm2559kp4wlkkjm&st=bbbx9a1p&raw=1|TSKEEN SE POUR"
-            "https://www.dropbox.com/scl/fi/c7vqmebi2gf5ods66xbgd/videoplaybachk.mp4?rlkey=b4ev8rii6n2cz0fizfvepwwql&st=em5bhpqa&raw=1|SUCH KI TALWAR"
+            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|FAJAR KA SUKOON"
+            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|SUKOON-E-ISHA"
+            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|ROH KI PYASS"
+            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|TSKEEN SE POUR"
+            "https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4|SUCH KI TALWAR"
           )
 
-          AD_URL="https://www.dropbox.com/scl/fi/zv7z1sbm81ohxp04a5anx/lv_0_20260529230011.mp4?rlkey=gpuytnfr9wtp2yc1mzn5l0hil&st=89a0s1w7&raw=1"
+          AD_URL="https://github.com/muaaziqbalvip/Mitvclient/raw/refs/heads/main/videoplaybachk.mp4"
           AD_TITLE="--- Special OFFER"
 
           TOTAL=${#VIDEOS[@]}
