@@ -51,7 +51,7 @@ jobs:
 
           # Logo ko resize karo: max 180px wide, aspect ratio preserve
           ffmpeg -i logo_raw.png \
-            -vf "scale='min(280,iw)':-1:flags=lanczos" \
+            -vf "scale='min(300,iw)':-1:flags=lanczos" \
             logo.png -y -loglevel quiet
 
           echo "=== Logo ready ==="
