@@ -80,7 +80,6 @@ jobs:
             *)           echo "OVERLAY_POS=W-w-20:20"     >> $GITHUB_ENV ;;
           esac
 
-      # ─── Main Stream Loop ───────────────────────────────────────────────────
       - name: Start 24/7 HD Stream
         run: |
           echo "=============================="
@@ -88,7 +87,8 @@ jobs:
           echo "Quality: $QUALITY | Bitrate: $VBR"
           echo "=============================="
 
-          # ── Video list: URL|Title ──
+          INTRO_OUTRO_URL="https://muaaziqbalvip.github.io/Milive2/lv_0_20260530230632.mp4"
+
           VIDEOS=(
             "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
             "https://muaaziqbalvip.github.io/Milive2/2.mp4|SUKOON-E-ISHA"
@@ -103,115 +103,148 @@ jobs:
           TOTAL=${#VIDEOS[@]}
           FAIL_COUNT=0
 
-          # Infinite loop
+          # ── Helper: play_video URL LOWER_TEXT_LINE1 LOWER_TEXT_LINE2 ──
+          play_video() {
+            local VID_URL="$1"
+            local LINE1="$2"
+            local LINE2="$3"
+            local PKT_EPOCH
+            PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+
+            ffmpeg \
+              -re \
+              -i "$VID_URL" \
+              -i logo.png \
+              -filter_complex \
+                "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
+[1:v]format=rgba,colorchannelmixer=aa=0.85,\
+fade=t=in:st=0:d=1:alpha=1[logo];\
+[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
+[wl]drawbox=x=10:y=60:w=320:h=44:color=black@0.70:t=fill,\
+drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}  PKT':\
+fontsize=24:fontcolor=00FFFF:x=20:y=68:shadowx=2:shadowy=2,\
+drawbox=x=10:y=H-120:w=960:h=50:color=0x0d0d0d@0.82:t=fill,\
+drawbox=x=10:y=H-120:w=5:h=50:color=00FF99@1:t=fill,\
+drawtext=text='${LINE1}':\
+fontsize=32:fontcolor=white:\
+x=26:y=H-113:shadowx=2:shadowy=2,\
+drawbox=x=10:y=H-62:w=960:h=42:color=0x0d0d0d@0.75:t=fill,\
+drawbox=x=10:y=H-62:w=5:h=42:color=FFD700@1:t=fill,\
+drawtext=text='${LINE2}':\
+fontsize=26:fontcolor=FFD700:\
+x=26:y=H-57:shadowx=2:shadowy=2[outv]" \
+              -map "[outv]" \
+              -map 0:a \
+              -c:v libx264 \
+              -preset "$PRESET" \
+              -tune zerolatency \
+              -profile:v high \
+              -level 4.2 \
+              -b:v "$VBR" \
+              -maxrate "$MAXR" \
+              -bufsize "$BUFS" \
+              -g 60 \
+              -keyint_min 60 \
+              -sc_threshold 0 \
+              -pix_fmt yuv420p \
+              -c:a aac \
+              -b:a 160k \
+              -ar 44100 \
+              -ac 2 \
+              -flvflags no_duration_filesize \
+              -f flv \
+              "${RTMP_URL}/${STREAM_KEY}" \
+              2>&1 | tee -a stream.log
+          }
+
+          # ── Helper: play_plain (intro/outro — no lower text overlay) ──
+          play_plain() {
+            local VID_URL="$1"
+            local PKT_EPOCH
+            PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+
+            ffmpeg \
+              -re \
+              -i "$VID_URL" \
+              -i logo.png \
+              -filter_complex \
+                "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
+[1:v]format=rgba,colorchannelmixer=aa=0.85,\
+fade=t=in:st=0:d=1:alpha=1[logo];\
+[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
+[wl]drawbox=x=10:y=60:w=320:h=44:color=black@0.70:t=fill,\
+drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}  PKT':\
+fontsize=24:fontcolor=00FFFF:x=20:y=68:shadowx=2:shadowy=2[outv]" \
+              -map "[outv]" \
+              -map 0:a \
+              -c:v libx264 \
+              -preset "$PRESET" \
+              -tune zerolatency \
+              -profile:v high \
+              -level 4.2 \
+              -b:v "$VBR" \
+              -maxrate "$MAXR" \
+              -bufsize "$BUFS" \
+              -g 60 \
+              -keyint_min 60 \
+              -sc_threshold 0 \
+              -pix_fmt yuv420p \
+              -c:a aac \
+              -b:a 160k \
+              -ar 44100 \
+              -ac 2 \
+              -flvflags no_duration_filesize \
+              -f flv \
+              "${RTMP_URL}/${STREAM_KEY}" \
+              2>&1 | tee -a stream.log
+          }
+
+          # ════════════════════════════════
+          # Infinite Loop
+          # ════════════════════════════════
           while true; do
+
             for (( i=0; i<TOTAL; i++ )); do
 
-              # Current video info
               CURRENT_ENTRY="${VIDEOS[$i]}"
               CURRENT_URL="${CURRENT_ENTRY%%|*}"
               CURRENT_TITLE="${CURRENT_ENTRY##*|}"
 
-              # Next video info (wrap around)
               NEXT_INDEX=$(( (i+1) % TOTAL ))
               NEXT_ENTRY="${VIDEOS[$NEXT_INDEX]}"
               NEXT_TITLE="${NEXT_ENTRY##*|}"
 
               echo "=============================="
-              echo "[$(date)] NOW: $CURRENT_TITLE"
-              echo "[$(date)] NEXT: $NEXT_TITLE"
+              echo "[$(date)] INTRO play ho rahi hai..."
               echo "=============================="
 
-              # ── Play current video ──
-              ffmpeg \
-                -re \
-                -i "$CURRENT_URL" \
-                -i logo.png \
-                -filter_complex \
-                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
-                   setsar=1,fps=30[base];\
-                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
-                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
-                   [withlogo]drawtext=\
-                     text='NOW\\: ${CURRENT_TITLE}':fontsize=32:fontcolor=white:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
-                   drawtext=\
-                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 \
-                -preset "$PRESET" \
-                -tune zerolatency \
-                -profile:v high \
-                -level 4.2 \
-                -b:v "$VBR" \
-                -maxrate "$MAXR" \
-                -bufsize "$BUFS" \
-                -g 60 \
-                -keyint_min 60 \
-                -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac \
-                -b:a 160k \
-                -ar 44100 \
-                -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv \
-                "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              # ── INTRO animation ──
+              play_plain "$INTRO_OUTRO_URL"
 
-              EXIT_CODE=${PIPESTATUS[0]}
-              echo "[$(date)] Video done. Exit: $EXIT_CODE"
+              echo "[$(date)] NOW: $CURRENT_TITLE | NEXT: $NEXT_TITLE"
 
-              # ── Play Ad after each video ──
+              # ── Main Video ──
+              play_video \
+                "$CURRENT_URL" \
+                "▶  NOW : ${CURRENT_TITLE}" \
+                "⏭  NEXT : ${NEXT_TITLE}"
+
+              echo "[$(date)] OUTRO play ho rahi hai..."
+
+              # ── OUTRO animation ──
+              play_plain "$INTRO_OUTRO_URL"
+
               echo "[$(date)] AD chal rahi hai..."
 
-              ffmpeg \
-                -re \
-                -i "$AD_URL" \
-                -i logo.png \
-                -filter_complex \
-                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
-                   setsar=1,fps=30[base];\
-                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
-                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
-                   [withlogo]drawtext=\
-                     text='${AD_TITLE}':fontsize=32:fontcolor=white:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
-                   drawtext=\
-                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 \
-                -preset "$PRESET" \
-                -tune zerolatency \
-                -profile:v high \
-                -level 4.2 \
-                -b:v "$VBR" \
-                -maxrate "$MAXR" \
-                -bufsize "$BUFS" \
-                -g 60 \
-                -keyint_min 60 \
-                -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac \
-                -b:a 160k \
-                -ar 44100 \
-                -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv \
-                "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              # ── Ad ──
+              play_video \
+                "$AD_URL" \
+                "${AD_TITLE}" \
+                "⏭  NEXT : ${NEXT_TITLE}"
 
-              echo "[$(date)] AD khatam. Next video load ho rahi hai..."
+              echo "[$(date)] AD khatam. Next video..."
               sleep 2
 
             done
