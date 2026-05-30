@@ -103,7 +103,109 @@ jobs:
           TOTAL=${#VIDEOS[@]}
           FAIL_COUNT=0
 
+          # ── Helper: play_video URL LOWER_TEXT_LINE1 LOWER_TEXT_LINE2 ──
+          play_video() {
+            local VID_URL="$1"
+            local LINE1="$2"
+            local LINE2="$3"
+            local PKT_EPOCH
+            PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+
+            ffmpeg \
+              -re \
+              -i "$VID_URL" \
+              -i logo.png \
+              -filter_complex \
+                "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
+[1:v]format=rgba,colorchannelmixer=aa=0.85,\
+fade=t=in:st=0:d=1:alpha=1[logo];\
+[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
+[wl]drawbox=x=10:y=60:w=320:h=44:color=black@0.70:t=fill,\
+drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}  PKT':\
+fontsize=24:fontcolor=00FFFF:x=20:y=68:shadowx=2:shadowy=2,\
+drawbox=x=10:y=H-120:w=960:h=50:color=0x0d0d0d@0.82:t=fill,\
+drawbox=x=10:y=H-120:w=5:h=50:color=00FF99@1:t=fill,\
+drawtext=text='${LINE1}':\
+fontsize=32:fontcolor=white:\
+x=26:y=H-113:shadowx=2:shadowy=2,\
+drawbox=x=10:y=H-62:w=960:h=42:color=0x0d0d0d@0.75:t=fill,\
+drawbox=x=10:y=H-62:w=5:h=42:color=FFD700@1:t=fill,\
+drawtext=text='${LINE2}':\
+fontsize=26:fontcolor=FFD700:\
+x=26:y=H-57:shadowx=2:shadowy=2[outv]" \
+              -map "[outv]" \
+              -map 0:a \
+              -c:v libx264 \
+              -preset "$PRESET" \
+              -tune zerolatency \
+              -profile:v high \
+              -level 4.2 \
+              -b:v "$VBR" \
+              -maxrate "$MAXR" \
+              -bufsize "$BUFS" \
+              -g 60 \
+              -keyint_min 60 \
+              -sc_threshold 0 \
+              -pix_fmt yuv420p \
+              -c:a aac \
+              -b:a 160k \
+              -ar 44100 \
+              -ac 2 \
+              -flvflags no_duration_filesize \
+              -f flv \
+              "${RTMP_URL}/${STREAM_KEY}" \
+              2>&1 | tee -a stream.log
+          }
+
+          # ── Helper: play_plain (intro/outro — no lower text overlay) ──
+          play_plain() {
+            local VID_URL="$1"
+            local PKT_EPOCH
+            PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+
+            ffmpeg \
+              -re \
+              -i "$VID_URL" \
+              -i logo.png \
+              -filter_complex \
+                "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
+[1:v]format=rgba,colorchannelmixer=aa=0.85,\
+fade=t=in:st=0:d=1:alpha=1[logo];\
+[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
+[wl]drawbox=x=10:y=60:w=320:h=44:color=black@0.70:t=fill,\
+drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}  PKT':\
+fontsize=24:fontcolor=00FFFF:x=20:y=68:shadowx=2:shadowy=2[outv]" \
+              -map "[outv]" \
+              -map 0:a \
+              -c:v libx264 \
+              -preset "$PRESET" \
+              -tune zerolatency \
+              -profile:v high \
+              -level 4.2 \
+              -b:v "$VBR" \
+              -maxrate "$MAXR" \
+              -bufsize "$BUFS" \
+              -g 60 \
+              -keyint_min 60 \
+              -sc_threshold 0 \
+              -pix_fmt yuv420p \
+              -c:a aac \
+              -b:a 160k \
+              -ar 44100 \
+              -ac 2 \
+              -flvflags no_duration_filesize \
+              -f flv \
+              "${RTMP_URL}/${STREAM_KEY}" \
+              2>&1 | tee -a stream.log
+          }
+
+          # ════════════════════════════════
+          # Infinite Loop
+          # ════════════════════════════════
           while true; do
+
             for (( i=0; i<TOTAL; i++ )); do
 
               CURRENT_ENTRY="${VIDEOS[$i]}"
@@ -114,154 +216,40 @@ jobs:
               NEXT_ENTRY="${VIDEOS[$NEXT_INDEX]}"
               NEXT_TITLE="${NEXT_ENTRY##*|}"
 
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              # INTRO animation video (har video se pehle)
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              echo "[$(date)] >>> INTRO playing..."
-              PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+              echo "=============================="
+              echo "[$(date)] INTRO play ho rahi hai..."
+              echo "=============================="
 
-              ffmpeg \
-                -re \
-                -i "$INTRO_OUTRO_URL" \
-                -i logo.png \
-                -filter_complex \
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
-[1:v]format=rgba,colorchannelmixer=aa=0.85,\
-fade=t=in:st=0:d=1:alpha=1[logo];\
-[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
-[wl]drawbox=x=W-330:y=130:w=310:h=50:color=black@0.75:t=fill[b1];\
-[b1]drawbox=x=W-330:y=130:w=4:h=50:color=00FFFF:t=fill[b2];\
-[b2]drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}':fontsize=22:fontcolor=00FFFF:x=W-320:y=140:shadowx=1:shadowy=1[b3];\
-[b3]drawtext=text='PAKISTAN TIME':fontsize=16:fontcolor=aaaaaa:x=W-320:y=165:shadowx=1:shadowy=1[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 -preset "$PRESET" -tune zerolatency \
-                -profile:v high -level 4.2 \
-                -b:v "$VBR" -maxrate "$MAXR" -bufsize "$BUFS" \
-                -g 60 -keyint_min 60 -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac -b:a 160k -ar 44100 -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              # ── INTRO animation ──
+              play_plain "$INTRO_OUTRO_URL"
 
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              # MAIN VIDEO
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              echo "[$(date)] >>> NOW: $CURRENT_TITLE | NEXT: $NEXT_TITLE"
-              PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+              echo "[$(date)] NOW: $CURRENT_TITLE | NEXT: $NEXT_TITLE"
 
-              ffmpeg \
-                -re \
-                -i "$CURRENT_URL" \
-                -i logo.png \
-                -filter_complex \
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
-[1:v]format=rgba,colorchannelmixer=aa=0.85,\
-fade=t=in:st=0:d=1:alpha=1[logo];\
-[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
-[wl]drawbox=x=W-330:y=130:w=310:h=50:color=black@0.75:t=fill[b1];\
-[b1]drawbox=x=W-330:y=130:w=4:h=50:color=00FFFF:t=fill[b2];\
-[b2]drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}':fontsize=22:fontcolor=00FFFF:x=W-320:y=140:shadowx=1:shadowy=1[b3];\
-[b3]drawtext=text='PAKISTAN TIME':fontsize=16:fontcolor=aaaaaa:x=W-320:y=165:shadowx=1:shadowy=1[b4];\
-[b4]drawbox=x=10:y=H-130:w=900:h=58:color=0x0a0a0a@0.88:t=fill[b5];\
-[b5]drawbox=x=10:y=H-130:w=6:h=58:color=00FF88:t=fill[b6];\
-[b6]drawtext=text='NOW  \:  ${CURRENT_TITLE}':fontsize=33:fontcolor=white:x=26:y=H-122:shadowx=2:shadowy=2[b7];\
-[b7]drawbox=x=10:y=H-64:w=900:h=46:color=0x0a0a0a@0.82:t=fill[b8];\
-[b8]drawbox=x=10:y=H-64:w=6:h=46:color=FFD700:t=fill[b9];\
-[b9]drawtext=text='NEXT  \:  ${NEXT_TITLE}':fontsize=27:fontcolor=FFD700:x=26:y=H-58:shadowx=2:shadowy=2[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 -preset "$PRESET" -tune zerolatency \
-                -profile:v high -level 4.2 \
-                -b:v "$VBR" -maxrate "$MAXR" -bufsize "$BUFS" \
-                -g 60 -keyint_min 60 -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac -b:a 160k -ar 44100 -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              # ── Main Video ──
+              play_video \
+                "$CURRENT_URL" \
+                "▶  NOW : ${CURRENT_TITLE}" \
+                "⏭  NEXT : ${NEXT_TITLE}"
 
-              echo "[$(date)] Video exit: ${PIPESTATUS[0]}"
+              echo "[$(date)] OUTRO play ho rahi hai..."
 
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              # OUTRO animation video (har video ke baad)
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              echo "[$(date)] >>> OUTRO playing..."
-              PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+              # ── OUTRO animation ──
+              play_plain "$INTRO_OUTRO_URL"
 
-              ffmpeg \
-                -re \
-                -i "$INTRO_OUTRO_URL" \
-                -i logo.png \
-                -filter_complex \
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
-[1:v]format=rgba,colorchannelmixer=aa=0.85,\
-fade=t=in:st=0:d=1:alpha=1[logo];\
-[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
-[wl]drawbox=x=W-330:y=130:w=310:h=50:color=black@0.75:t=fill[b1];\
-[b1]drawbox=x=W-330:y=130:w=4:h=50:color=00FFFF:t=fill[b2];\
-[b2]drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}':fontsize=22:fontcolor=00FFFF:x=W-320:y=140:shadowx=1:shadowy=1[b3];\
-[b3]drawtext=text='PAKISTAN TIME':fontsize=16:fontcolor=aaaaaa:x=W-320:y=165:shadowx=1:shadowy=1[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 -preset "$PRESET" -tune zerolatency \
-                -profile:v high -level 4.2 \
-                -b:v "$VBR" -maxrate "$MAXR" -bufsize "$BUFS" \
-                -g 60 -keyint_min 60 -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac -b:a 160k -ar 44100 -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              echo "[$(date)] AD chal rahi hai..."
 
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              # AD VIDEO
-              # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-              echo "[$(date)] >>> AD playing..."
-              PKT_EPOCH=$(TZ=Asia/Karachi date +%s)
+              # ── Ad ──
+              play_video \
+                "$AD_URL" \
+                "${AD_TITLE}" \
+                "⏭  NEXT : ${NEXT_TITLE}"
 
-              ffmpeg \
-                -re \
-                -i "$AD_URL" \
-                -i logo.png \
-                -filter_complex \
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];\
-[1:v]format=rgba,colorchannelmixer=aa=0.85,\
-fade=t=in:st=0:d=1:alpha=1[logo];\
-[base][logo]overlay=${OVERLAY_POS}:format=auto[wl];\
-[wl]drawbox=x=W-330:y=130:w=310:h=50:color=black@0.75:t=fill[b1];\
-[b1]drawbox=x=W-330:y=130:w=4:h=50:color=00FFFF:t=fill[b2];\
-[b2]drawtext=text='%{pts\:localtime\:${PKT_EPOCH}\:%I\\\:%M\\\:%S %p}':fontsize=22:fontcolor=00FFFF:x=W-320:y=140:shadowx=1:shadowy=1[b3];\
-[b3]drawtext=text='PAKISTAN TIME':fontsize=16:fontcolor=aaaaaa:x=W-320:y=165:shadowx=1:shadowy=1[b4];\
-[b4]drawbox=x=10:y=H-130:w=900:h=58:color=0x0a0a0a@0.88:t=fill[b5];\
-[b5]drawbox=x=10:y=H-130:w=6:h=58:color=FF4444:t=fill[b6];\
-[b6]drawtext=text='${AD_TITLE}':fontsize=33:fontcolor=white:x=26:y=H-122:shadowx=2:shadowy=2[b7];\
-[b7]drawbox=x=10:y=H-64:w=900:h=46:color=0x0a0a0a@0.82:t=fill[b8];\
-[b8]drawbox=x=10:y=H-64:w=6:h=46:color=FFD700:t=fill[b9];\
-[b9]drawtext=text='NEXT  \:  ${NEXT_TITLE}':fontsize=27:fontcolor=FFD700:x=26:y=H-58:shadowx=2:shadowy=2[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 -preset "$PRESET" -tune zerolatency \
-                -profile:v high -level 4.2 \
-                -b:v "$VBR" -maxrate "$MAXR" -bufsize "$BUFS" \
-                -g 60 -keyint_min 60 -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac -b:a 160k -ar 44100 -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
-
-              echo "[$(date)] AD done. Next video load ho rahi hai..."
+              echo "[$(date)] AD khatam. Next video..."
               sleep 2
 
             done
 
-            echo "[$(date)] Playlist complete â€” restart ho raha hai..."
+            echo "[$(date)] Playlist complete — restart ho raha hai..."
             FAIL_COUNT=$((FAIL_COUNT + 1))
             if [ "$FAIL_COUNT" -gt 5 ]; then
               sleep 30
