@@ -90,6 +90,7 @@ jobs:
 
           # ── Video list: URL|Title ──
           VIDEOS=(
+            "https://muaaziqbalvip.github.io/Milive2/6.mp4|PANIYON KI DUA"
             "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
             "https://muaaziqbalvip.github.io/Milive2/2.mp4|SUKOON-E-ISHA"
             "https://muaaziqbalvip.github.io/Milive2/5.mp4|ROH KI PYASS"
