@@ -1,4 +1,4 @@
-name: 24/7 YouTube Live Stream (Pro)
+name: 24/7 YouTube Live Stream (Pro Fixed)
 
 on:
   workflow_dispatch:
@@ -31,15 +31,18 @@ jobs:
       QUALITY:  ${{ github.event.inputs.quality_preset || 'mid' }}
 
     steps:
-      - name: Install FFmpeg
+      - name: Install FFmpeg & Dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg curl
+          sudo apt-get install -y ffmpeg curl tzdata
+          # Verify ffmpeg version
+          ffmpeg -version | head -1
 
       - name: Download Logo
         run: |
           curl -sL "$LOGO_URL" -o logo_raw.png || true
           if [ ! -s logo_raw.png ]; then
+            echo "Logo download failed, creating transparent placeholder"
             ffmpeg -f lavfi -i color=black@0:size=1x1:rate=1 \
               -frames:v 1 logo_raw.png -y -loglevel quiet
           fi
@@ -102,31 +105,30 @@ jobs:
           AD_TITLE="--- Special OFFER"
 
           TOTAL=${#VIDEOS[@]}
-          FAIL_COUNT=0
 
-          # Infinite loop
-          while true; do
-            for (( i=0; i<TOTAL; i++ )); do
+          # ── Pakistan Standard Time = UTC+5 ──
+          # drawtext se live clock: Pakistan = utc+5*3600 seconds offset
+          PKT_OFFSET=18000
 
-              # Current video info
-              CURRENT_ENTRY="${VIDEOS[$i]}"
-              CURRENT_URL="${CURRENT_ENTRY%%|*}"
-              CURRENT_TITLE="${CURRENT_ENTRY##*|}"
+          # ── FFmpeg stream karne ka function with full retry ──
+          stream_video() {
+            local VID_URL="$1"
+            local NOW_TITLE="$2"
+            local NEXT_TITLE="$3"
+            local MAX_RETRIES=5
+            local ATTEMPT=0
+            local SUCCESS=0
 
-              # Next video info (wrap around)
-              NEXT_INDEX=$(( (i+1) % TOTAL ))
-              NEXT_ENTRY="${VIDEOS[$NEXT_INDEX]}"
-              NEXT_TITLE="${NEXT_ENTRY##*|}"
+            while [ $ATTEMPT -lt $MAX_RETRIES ]; do
+              ATTEMPT=$((ATTEMPT + 1))
+              echo "[$(date)] Attempt $ATTEMPT/$MAX_RETRIES: $NOW_TITLE"
 
-              echo "=============================="
-              echo "[$(date)] NOW: $CURRENT_TITLE"
-              echo "[$(date)] NEXT: $NEXT_TITLE"
-              echo "=============================="
-
-              # ── Play current video ──
               ffmpeg \
                 -re \
-                -i "$CURRENT_URL" \
+                -fflags +genpts+igndts \
+                -err_detect ignore_err \
+                -ignore_unknown \
+                -i "$VID_URL" \
                 -i logo.png \
                 -filter_complex \
                   "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
@@ -135,13 +137,18 @@ jobs:
                    [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
                    [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
                    [withlogo]drawtext=\
-                     text='NOW\\: ${CURRENT_TITLE}':fontsize=32:fontcolor=white:\
+                     text='NOW\\: ${NOW_TITLE}':fontsize=32:fontcolor=white:\
                      box=1:boxcolor=black@0.6:boxborderw=8:\
                      x=20:y=H-th-90:shadowx=2:shadowy=2,\
                    drawtext=\
                      text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
                      box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
+                     x=20:y=H-th-45:shadowx=2:shadowy=2,\
+                   drawtext=\
+                     text='%{pts\\:localtime\\:%{pts}\\:%I\\\\\\:%M\\\\\\:%S %p}':expansion=strftime:\
+                     fontsize=28:fontcolor=white:\
+                     box=1:boxcolor=0x00000099:boxborderw=8:\
+                     x=W-tw-20:y=20:shadowx=2:shadowy=2[outv]" \
                 -map "[outv]" \
                 -map 0:a \
                 -c:v libx264 \
@@ -166,64 +173,61 @@ jobs:
                 2>&1 | tee -a stream.log
 
               EXIT_CODE=${PIPESTATUS[0]}
-              echo "[$(date)] Video done. Exit: $EXIT_CODE"
+              echo "[$(date)] Exit code: $EXIT_CODE | Video: $NOW_TITLE"
 
-              # ── Play Ad after each video ──
-              echo "[$(date)] AD chal rahi hai..."
+              # Exit code 0 = video puri chal gayi, success
+              if [ "$EXIT_CODE" -eq 0 ]; then
+                SUCCESS=1
+                break
+              fi
 
-              ffmpeg \
-                -re \
-                -i "$AD_URL" \
-                -i logo.png \
-                -filter_complex \
-                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
-                   setsar=1,fps=30[base];\
-                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
-                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
-                   [withlogo]drawtext=\
-                     text='${AD_TITLE}':fontsize=32:fontcolor=white:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
-                   drawtext=\
-                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
-                -map "[outv]" \
-                -map 0:a \
-                -c:v libx264 \
-                -preset "$PRESET" \
-                -tune zerolatency \
-                -profile:v high \
-                -level 4.2 \
-                -b:v "$VBR" \
-                -maxrate "$MAXR" \
-                -bufsize "$BUFS" \
-                -g 60 \
-                -keyint_min 60 \
-                -sc_threshold 0 \
-                -pix_fmt yuv420p \
-                -c:a aac \
-                -b:a 160k \
-                -ar 44100 \
-                -ac 2 \
-                -flvflags no_duration_filesize \
-                -f flv \
-                "${RTMP_URL}/${STREAM_KEY}" \
-                2>&1 | tee -a stream.log
+              # Exit code 1 = ffmpeg error, retry
+              echo "[$(date)] !! Error on attempt $ATTEMPT. Retry in 5s..."
+              sleep 5
+            done
 
-              echo "[$(date)] AD khatam. Next video load ho rahi hai..."
+            if [ "$SUCCESS" -ne 1 ]; then
+              echo "[$(date)] !! $MAX_RETRIES attempts failed for: $NOW_TITLE — skip kar rahe hain"
+            fi
+          }
+
+          # ── Infinite playlist loop ──
+          CYCLE=0
+          while true; do
+            CYCLE=$((CYCLE + 1))
+            echo "=============================="
+            echo "[$(date)] === CYCLE $CYCLE START ==="
+            echo "=============================="
+
+            for (( i=0; i<TOTAL; i++ )); do
+
+              CURRENT_ENTRY="${VIDEOS[$i]}"
+              CURRENT_URL="${CURRENT_ENTRY%%|*}"
+              CURRENT_TITLE="${CURRENT_ENTRY##*|}"
+
+              NEXT_INDEX=$(( (i+1) % TOTAL ))
+              NEXT_ENTRY="${VIDEOS[$NEXT_INDEX]}"
+              NEXT_TITLE="${NEXT_ENTRY##*|}"
+
+              echo "=============================="
+              echo "[$(date)] NOW PLAYING: $CURRENT_TITLE"
+              echo "[$(date)] UP NEXT:     $NEXT_TITLE"
+              echo "=============================="
+
+              # ── Main video stream (with retry) ──
+              stream_video "$CURRENT_URL" "$CURRENT_TITLE" "$NEXT_TITLE"
+
+              # ── Ad chalao har video ke baad ──
+              echo "[$(date)] === AD Playing ==="
+              stream_video "$AD_URL" "$AD_TITLE" "$NEXT_TITLE"
+
+              echo "[$(date)] === AD done. Next video loading... ==="
               sleep 2
 
             done
 
-            echo "[$(date)] Playlist complete — restart ho raha hai..."
-            FAIL_COUNT=$((FAIL_COUNT + 1))
-            if [ "$FAIL_COUNT" -gt 5 ]; then
-              sleep 30
-            else
-              sleep 3
-            fi
+            echo "[$(date)] === CYCLE $CYCLE COMPLETE. Restarting playlist... ==="
+            sleep 3
 
           done
 
