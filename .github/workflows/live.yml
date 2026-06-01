@@ -1,4 +1,4 @@
-name: 24/7 YouTube Live Stream ❤️(Pro)
+name: 24/7 YouTube Live Stream❤️ (Pro)
 
 on:
   workflow_dispatch:
@@ -156,27 +156,21 @@ jobs:
                    [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
                    [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
                    [withlogo]\
-                   drawbox=x=10:y=10:w=300:h=52:color=0x000000AA:t=fill,\
-                   drawbox=x=12:y=12:w=296:h=48:color=0xFFFFFF18:t=2,\
+                   drawbox=x=10:y=10:w=320:h=52:color=0x000000CC:t=fill,\
+                   drawbox=x=10:y=10:w=320:h=4:color=0xFFD700FF:t=fill,\
                    drawtext=\
-                     text='🕐 %{pts\\:localtime\\:$(date -u +%s -d '+5 hours')}':fontsize=22:fontcolor=0xFFD700:\
-                     x=22:y=22:shadowx=1:shadowy=1,\
-                   drawbox=x=10:y=H-130:w=520:h=118:color=0x000000BB:t=fill,\
-                   drawbox=x=12:y=H-128:w=516:h=114:color=0xFFFFFF15:t=2,\
-                   drawbox=x=12:y=H-128:w=516:h=4:color=0xFF4444FF:t=fill,\
+                     text='PKT $(TZ=Asia/Karachi date +%H\\\\:%M\\\\:%S)':fontsize=22:fontcolor=0xFFD700:\
+                     x=22:y=24:shadowx=1:shadowy=1,\
+                   drawbox=x=10:y=950:w=530:h=120:color=0x000000CC:t=fill,\
+                   drawbox=x=10:y=950:w=530:h=4:color=0xFF4444FF:t=fill,\
+                   drawbox=x=10:y=1066:w=530:h=4:color=0xFF4444FF:t=fill,\
                    drawtext=\
-                     text='▶  NOW':fontsize=16:fontcolor=0xFF6666:\
-                     x=22:y=H-118:shadowx=1:shadowy=1,\
+                     text='NOW  ${CURRENT_TITLE}':fontsize=28:fontcolor=white:\
+                     x=22:y=958:shadowx=2:shadowy=2,\
+                   drawbox=x=10:y=1000:w=530:h=2:color=0xFFFFFF44:t=fill,\
                    drawtext=\
-                     text='${CURRENT_TITLE}':fontsize=30:fontcolor=white:\
-                     x=22:y=H-96:shadowx=2:shadowy=2,\
-                   drawbox=x=12:y=H-58:w=516:h=2:color=0xFFFFFF33:t=fill,\
-                   drawtext=\
-                     text='▷  NEXT':fontsize=14:fontcolor=0xFFD700:\
-                     x=22:y=H-52:shadowx=1:shadowy=1,\
-                   drawtext=\
-                     text='${NEXT_TITLE}':fontsize=24:fontcolor=0xCCCCCC:\
-                     x=22:y=H-34:shadowx=1:shadowy=1[outv]" \
+                     text='NEXT  ${NEXT_TITLE}':fontsize=22:fontcolor=0xFFD700:\
+                     x=22:y=1010:shadowx=1:shadowy=1[outv]" \
                 -map "[outv]" \
                 -map 0:a \
                 -c:v libx264 \
