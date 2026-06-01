@@ -6,7 +6,7 @@ on:
       logo_url:
         description: 'Logo image URL (PNG with transparency preferred)'
         required: false
-        default: 'https://i.ibb.co/LzVJvDVz/file-00000000e55c7206934d363686b152fe.png'
+        default: 'https://i.ibb.co/gZFSmCPw/file-00000000305071fa945b58b012ac072b-removebg-preview.png'
       logo_position:
         description: 'Logo position: topleft / topright / bottomleft / bottomright'
         required: false
