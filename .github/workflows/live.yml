@@ -1,4 +1,4 @@
-name: 24/7 YouTube Live Stream (Pro Fixed)
+name: 24/7 YouTube Live Stream (Pro)
 
 on:
   workflow_dispatch:
@@ -31,21 +31,15 @@ jobs:
       QUALITY:  ${{ github.event.inputs.quality_preset || 'mid' }}
 
     steps:
-      - name: Install FFmpeg & Dependencies
+      - name: Install FFmpeg
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y ffmpeg curl tzdata
-
-          sudo timedatectl set-timezone Asia/Karachi
-
-ffmpeg -version | head -1
-date
+          sudo apt-get install -y ffmpeg curl
 
       - name: Download Logo
         run: |
           curl -sL "$LOGO_URL" -o logo_raw.png || true
           if [ ! -s logo_raw.png ]; then
-            echo "Logo download failed, creating transparent placeholder"
             ffmpeg -f lavfi -i color=black@0:size=1x1:rate=1 \
               -frames:v 1 logo_raw.png -y -loglevel quiet
           fi
@@ -86,7 +80,6 @@ date
             *)           echo "OVERLAY_POS=W-w-20:20"     >> $GITHUB_ENV ;;
           esac
 
-      # ─── Main Stream Loop ───────────────────────────────────────────────────
       - name: Start 24/7 HD Stream
         run: |
           echo "=============================="
@@ -94,7 +87,6 @@ date
           echo "Quality: $QUALITY | Bitrate: $VBR"
           echo "=============================="
 
-          # ── Video list: URL|Title ──
           VIDEOS=(
             "https://muaaziqbalvip.github.io/Milive2/6.mp4|PANIYON KI DUA"
             "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
@@ -105,56 +97,55 @@ date
           )
 
           AD_URL="https://muaaziqbalvip.github.io/Milive2/0.mp4"
-          AD_TITLE="--- Special OFFER"
+          AD_TITLE="SPECIAL OFFER"
 
           TOTAL=${#VIDEOS[@]}
+          STREAM_ERROR_COUNT=0
+          MAX_ERRORS=10
 
-          # ── Pakistan Standard Time = UTC+5 ──
-          # drawtext se live clock: Pakistan = utc+5*3600 seconds offset
-          PKT_OFFSET=18000
-
-          # ── FFmpeg stream karne ka function with full retry ──
           stream_video() {
-            local VID_URL="$1"
-            local NOW_TITLE="$2"
+            local INPUT_URL="$1"
+            local CURRENT_TITLE="$2"
             local NEXT_TITLE="$3"
             local MAX_RETRIES=5
-            local ATTEMPT=0
-            local SUCCESS=0
+            local RETRY=0
 
-            while [ $ATTEMPT -lt $MAX_RETRIES ]; do
-              ATTEMPT=$((ATTEMPT + 1))
-              echo "[$(date)] Attempt $ATTEMPT/$MAX_RETRIES: $NOW_TITLE"
+            echo "[$(date)] Downloading: $CURRENT_TITLE"
+            local TMP_FILE
+            TMP_FILE=$(mktemp /tmp/stream_XXXXXX.mp4)
+
+            local DL_OK=0
+            for attempt in 1 2 3; do
+              if curl -sL --retry 3 --retry-delay 2 \
+                   --connect-timeout 30 --max-time 600 \
+                   "$INPUT_URL" -o "$TMP_FILE" && [ -s "$TMP_FILE" ]; then
+                DL_OK=1
+                echo "[$(date)] Download OK (attempt $attempt): $CURRENT_TITLE"
+                break
+              else
+                echo "[$(date)] Download attempt $attempt failed, retrying..."
+                sleep 5
+              fi
+            done
+
+            if [ "$DL_OK" -eq 0 ]; then
+              echo "[$(date)] WARN: Could not download $CURRENT_TITLE — skipping."
+              rm -f "$TMP_FILE"
+              return 1
+            fi
+
+            while [ $RETRY -lt $MAX_RETRIES ]; do
+
+              PKT_TIME=$(TZ=Asia/Karachi date "+%H:%M:%S PKT")
+
+              # KEY FIX: filter_complex as single-line variable, no embedded newlines
+              FC="[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];[1:v]format=rgba,colorchannelmixer=aa=0.85[logo];[base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];[withlogo]drawbox=x=10:y=8:w=260:h=56:color=0x000000CC:t=fill,drawbox=x=10:y=8:w=260:h=4:color=0xFFD700FF:t=fill,drawtext=text='${PKT_TIME}':fontsize=20:fontcolor=0xFFD700:x=20:y=22:shadowx=1:shadowy=1,drawbox=x=10:y=950:w=540:h=122:color=0x000000CC:t=fill,drawbox=x=10:y=950:w=540:h=4:color=0xFF4444FF:t=fill,drawbox=x=10:y=1068:w=540:h=4:color=0xFF4444FF:t=fill,drawtext=text='NOW  ${CURRENT_TITLE}':fontsize=28:fontcolor=white:x=20:y=960:shadowx=2:shadowy=2,drawbox=x=10:y=1004:w=540:h=2:color=0xFFFFFF55:t=fill,drawtext=text='NEXT  ${NEXT_TITLE}':fontsize=22:fontcolor=0xFFD700:x=20:y=1014:shadowx=1:shadowy=1[outv]"
 
               ffmpeg \
                 -re \
-                -fflags +genpts+igndts \
-                -err_detect ignore_err \
-                -ignore_unknown \
-                -i "$VID_URL" \
+                -i "$TMP_FILE" \
                 -i logo.png \
-                -filter_complex \
-                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
-                   setsar=1,fps=30[base];\
-                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
-                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
-                   [withlogo]drawtext=\
-                     text='NOW\\: ${NOW_TITLE}':fontsize=32:fontcolor=white:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
-                   drawtext=\
-                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
-                     box=1:boxcolor=black@0.6:boxborderw=8:\
-                     x=20:y=H-th-45:shadowx=2:shadowy=2,\
-                   drawtext=\
- text='%{localtime\\:%I\\\\:%M\\\\:%S %p}':\
- 
- fontsize=28:fontcolor=white:\
- 
- box=1:boxcolor=0x00000099:boxborderw=8:\
- 
- x=W-tw-20:y=20:shadowx=2:shadowy=2[outv]" \
+                -filter_complex "$FC" \
                 -map "[outv]" \
                 -map 0:a \
                 -c:v libx264 \
@@ -173,38 +164,44 @@ date
                 -b:a 160k \
                 -ar 44100 \
                 -ac 2 \
+                -avoid_negative_ts make_zero \
+                -fflags +genpts \
                 -flvflags no_duration_filesize \
                 -f flv \
                 "${RTMP_URL}/${STREAM_KEY}" \
                 2>&1 | tee -a stream.log
 
               EXIT_CODE=${PIPESTATUS[0]}
-              echo "[$(date)] Exit code: $EXIT_CODE | Video: $NOW_TITLE"
 
-              # Exit code 0 = video puri chal gayi, success
               if [ "$EXIT_CODE" -eq 0 ]; then
-                SUCCESS=1
+                echo "[$(date)] Video complete: $CURRENT_TITLE"
+                STREAM_ERROR_COUNT=0
                 break
-              fi
+              else
+                RETRY=$((RETRY + 1))
+                STREAM_ERROR_COUNT=$((STREAM_ERROR_COUNT + 1))
+                echo "[$(date)] Stream error (exit $EXIT_CODE) — retry $RETRY/$MAX_RETRIES"
 
-              # Exit code 1 = ffmpeg error, retry
-              echo "[$(date)] !! Error on attempt $ATTEMPT. Retry in 5s..."
-              sleep 5
+                if [ "$STREAM_ERROR_COUNT" -ge "$MAX_ERRORS" ]; then
+                  echo "[$(date)] Too many errors — waiting 60s..."
+                  sleep 60
+                  STREAM_ERROR_COUNT=0
+                else
+                  sleep $((RETRY * 5))
+                fi
+              fi
             done
 
-            if [ "$SUCCESS" -ne 1 ]; then
-              echo "[$(date)] !! $MAX_RETRIES attempts failed for: $NOW_TITLE — skip kar rahe hain"
+            rm -f "$TMP_FILE"
+
+            if [ $RETRY -ge $MAX_RETRIES ]; then
+              echo "[$(date)] Skipping $CURRENT_TITLE after $MAX_RETRIES failed attempts."
+              return 1
             fi
+            return 0
           }
 
-          # ── Infinite playlist loop ──
-          CYCLE=0
           while true; do
-            CYCLE=$((CYCLE + 1))
-            echo "=============================="
-            echo "[$(date)] === CYCLE $CYCLE START ==="
-            echo "=============================="
-
             for (( i=0; i<TOTAL; i++ )); do
 
               CURRENT_ENTRY="${VIDEOS[$i]}"
@@ -216,24 +213,22 @@ date
               NEXT_TITLE="${NEXT_ENTRY##*|}"
 
               echo "=============================="
-              echo "[$(date)] NOW PLAYING: $CURRENT_TITLE"
-              echo "[$(date)] UP NEXT:     $NEXT_TITLE"
+              echo "[$(date)] NOW : $CURRENT_TITLE"
+              echo "[$(date)] NEXT: $NEXT_TITLE"
               echo "=============================="
 
-              # ── Main video stream (with retry) ──
               stream_video "$CURRENT_URL" "$CURRENT_TITLE" "$NEXT_TITLE"
 
-              # ── Ad chalao har video ke baad ──
-              echo "[$(date)] === AD Playing ==="
+              echo "[$(date)] Ad chal rahi hai..."
               stream_video "$AD_URL" "$AD_TITLE" "$NEXT_TITLE"
 
-              echo "[$(date)] === AD done. Next video loading... ==="
+              echo "[$(date)] Ad khatam — next video..."
               sleep 2
 
             done
 
-            echo "[$(date)] === CYCLE $CYCLE COMPLETE. Restarting playlist... ==="
-            sleep 3
+            echo "[$(date)] Playlist complete — restart ho raha hai..."
+            sleep 2
 
           done
 
