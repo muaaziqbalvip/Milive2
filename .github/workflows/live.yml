@@ -1,4 +1,4 @@
-name: 24/7 YouTube Live Stream❤️ (Pro)
+name: 24/7 YouTube Live Stream (Pro)
 
 on:
   workflow_dispatch:
@@ -80,7 +80,6 @@ jobs:
             *)           echo "OVERLAY_POS=W-w-20:20"     >> $GITHUB_ENV ;;
           esac
 
-      # ─── Main Stream Loop ───────────────────────────────────────────────────
       - name: Start 24/7 HD Stream
         run: |
           echo "=============================="
@@ -88,7 +87,6 @@ jobs:
           echo "Quality: $QUALITY | Bitrate: $VBR"
           echo "=============================="
 
-          # ── Video list: URL|Title ──
           VIDEOS=(
             "https://muaaziqbalvip.github.io/Milive2/6.mp4|PANIYON KI DUA"
             "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
@@ -99,14 +97,12 @@ jobs:
           )
 
           AD_URL="https://muaaziqbalvip.github.io/Milive2/0.mp4"
-          AD_TITLE="--- Special OFFER"
+          AD_TITLE="SPECIAL OFFER"
 
           TOTAL=${#VIDEOS[@]}
-          # ── FIX: Separate error counter - playlist loop is NOT a failure ──
           STREAM_ERROR_COUNT=0
           MAX_ERRORS=10
 
-          # ── Helper: stream one video with full retry logic ──
           stream_video() {
             local INPUT_URL="$1"
             local CURRENT_TITLE="$2"
@@ -114,12 +110,10 @@ jobs:
             local MAX_RETRIES=5
             local RETRY=0
 
-            # ── FIX: Pre-download video to avoid mid-stream network cuts ──
             echo "[$(date)] Downloading: $CURRENT_TITLE"
             local TMP_FILE
             TMP_FILE=$(mktemp /tmp/stream_XXXXXX.mp4)
 
-            # Try downloading with retries
             local DL_OK=0
             for attempt in 1 2 3; do
               if curl -sL --retry 3 --retry-delay 2 \
@@ -140,37 +134,18 @@ jobs:
               return 1
             fi
 
-            # ── FIX: Stream from local file - no more mid-video cuts ──
             while [ $RETRY -lt $MAX_RETRIES ]; do
 
-              # Pakistan Standard Time = UTC+5
-              # drawtext with PKT time displayed live
+              PKT_TIME=$(TZ=Asia/Karachi date "+%H:%M:%S PKT")
+
+              # KEY FIX: filter_complex as single-line variable, no embedded newlines
+              FC="[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];[1:v]format=rgba,colorchannelmixer=aa=0.85[logo];[base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];[withlogo]drawbox=x=10:y=8:w=260:h=56:color=0x000000CC:t=fill,drawbox=x=10:y=8:w=260:h=4:color=0xFFD700FF:t=fill,drawtext=text='${PKT_TIME}':fontsize=20:fontcolor=0xFFD700:x=20:y=22:shadowx=1:shadowy=1,drawbox=x=10:y=950:w=540:h=122:color=0x000000CC:t=fill,drawbox=x=10:y=950:w=540:h=4:color=0xFF4444FF:t=fill,drawbox=x=10:y=1068:w=540:h=4:color=0xFF4444FF:t=fill,drawtext=text='NOW  ${CURRENT_TITLE}':fontsize=28:fontcolor=white:x=20:y=960:shadowx=2:shadowy=2,drawbox=x=10:y=1004:w=540:h=2:color=0xFFFFFF55:t=fill,drawtext=text='NEXT  ${NEXT_TITLE}':fontsize=22:fontcolor=0xFFD700:x=20:y=1014:shadowx=1:shadowy=1[outv]"
+
               ffmpeg \
                 -re \
                 -i "$TMP_FILE" \
                 -i logo.png \
-                -filter_complex \
-                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
-                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
-                   setsar=1,fps=30[base];\
-                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
-                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
-                   [withlogo]\
-                   drawbox=x=10:y=10:w=320:h=52:color=0x000000CC:t=fill,\
-                   drawbox=x=10:y=10:w=320:h=4:color=0xFFD700FF:t=fill,\
-                   drawtext=\
-                     text='PKT $(TZ=Asia/Karachi date +%H\\\\:%M\\\\:%S)':fontsize=22:fontcolor=0xFFD700:\
-                     x=22:y=24:shadowx=1:shadowy=1,\
-                   drawbox=x=10:y=950:w=530:h=120:color=0x000000CC:t=fill,\
-                   drawbox=x=10:y=950:w=530:h=4:color=0xFF4444FF:t=fill,\
-                   drawbox=x=10:y=1066:w=530:h=4:color=0xFF4444FF:t=fill,\
-                   drawtext=\
-                     text='NOW  ${CURRENT_TITLE}':fontsize=28:fontcolor=white:\
-                     x=22:y=958:shadowx=2:shadowy=2,\
-                   drawbox=x=10:y=1000:w=530:h=2:color=0xFFFFFF44:t=fill,\
-                   drawtext=\
-                     text='NEXT  ${NEXT_TITLE}':fontsize=22:fontcolor=0xFFD700:\
-                     x=22:y=1010:shadowx=1:shadowy=1[outv]" \
+                -filter_complex "$FC" \
                 -map "[outv]" \
                 -map 0:a \
                 -c:v libx264 \
@@ -199,17 +174,16 @@ jobs:
               EXIT_CODE=${PIPESTATUS[0]}
 
               if [ "$EXIT_CODE" -eq 0 ]; then
-                echo "[$(date)] ✅ Video complete: $CURRENT_TITLE"
+                echo "[$(date)] Video complete: $CURRENT_TITLE"
                 STREAM_ERROR_COUNT=0
                 break
               else
                 RETRY=$((RETRY + 1))
                 STREAM_ERROR_COUNT=$((STREAM_ERROR_COUNT + 1))
-                echo "[$(date)] ⚠️  Stream error (exit $EXIT_CODE) — retry $RETRY/$MAX_RETRIES"
+                echo "[$(date)] Stream error (exit $EXIT_CODE) — retry $RETRY/$MAX_RETRIES"
 
-                # ── FIX: If too many consecutive errors, wait longer ──
                 if [ "$STREAM_ERROR_COUNT" -ge "$MAX_ERRORS" ]; then
-                  echo "[$(date)] 🔴 Too many errors ($STREAM_ERROR_COUNT) — waiting 60s before retry..."
+                  echo "[$(date)] Too many errors — waiting 60s..."
                   sleep 60
                   STREAM_ERROR_COUNT=0
                 else
@@ -221,13 +195,12 @@ jobs:
             rm -f "$TMP_FILE"
 
             if [ $RETRY -ge $MAX_RETRIES ]; then
-              echo "[$(date)] ❌ Skipping $CURRENT_TITLE after $MAX_RETRIES failed attempts."
+              echo "[$(date)] Skipping $CURRENT_TITLE after $MAX_RETRIES failed attempts."
               return 1
             fi
             return 0
           }
 
-          # ── Infinite loop — never stops ──
           while true; do
             for (( i=0; i<TOTAL; i++ )); do
 
@@ -240,23 +213,21 @@ jobs:
               NEXT_TITLE="${NEXT_ENTRY##*|}"
 
               echo "=============================="
-              echo "[$(date)] NOW PLAYING : $CURRENT_TITLE"
-              echo "[$(date)] UP NEXT     : $NEXT_TITLE"
+              echo "[$(date)] NOW : $CURRENT_TITLE"
+              echo "[$(date)] NEXT: $NEXT_TITLE"
               echo "=============================="
 
               stream_video "$CURRENT_URL" "$CURRENT_TITLE" "$NEXT_TITLE"
 
-              # ── Play Ad after each video ──
-              echo "[$(date)] 📢 Ad chal rahi hai..."
+              echo "[$(date)] Ad chal rahi hai..."
               stream_video "$AD_URL" "$AD_TITLE" "$NEXT_TITLE"
 
-              echo "[$(date)] ✅ Ad khatam — next video load ho rahi hai..."
+              echo "[$(date)] Ad khatam — next video..."
               sleep 2
 
             done
 
-            echo "[$(date)] 🔄 Playlist complete — restart ho raha hai..."
-            # ── FIX: No FAIL_COUNT here — this is NORMAL behaviour ──
+            echo "[$(date)] Playlist complete — restart ho raha hai..."
             sleep 2
 
           done
