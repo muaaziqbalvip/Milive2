@@ -21,7 +21,7 @@ on:
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 370
 
     env:
       STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
@@ -35,8 +35,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg curl tzdata
-          # Verify ffmpeg version
-          ffmpeg -version | head -1
+
+          sudo timedatectl set-timezone Asia/Karachi
+
+ffmpeg -version | head -1
+date
 
       - name: Download Logo
         run: |
@@ -145,10 +148,13 @@ jobs:
                      box=1:boxcolor=black@0.6:boxborderw=8:\
                      x=20:y=H-th-45:shadowx=2:shadowy=2,\
                    drawtext=\
-                     text='%{pts\\:localtime\\:%{pts}\\:%I\\\\\\:%M\\\\\\:%S %p}':expansion=strftime:\
-                     fontsize=28:fontcolor=white:\
-                     box=1:boxcolor=0x00000099:boxborderw=8:\
-                     x=W-tw-20:y=20:shadowx=2:shadowy=2[outv]" \
+ text='%{localtime\\:%I\\\\:%M\\\\:%S %p}':\
+ 
+ fontsize=28:fontcolor=white:\
+ 
+ box=1:boxcolor=0x00000099:boxborderw=8:\
+ 
+ x=W-tw-20:y=20:shadowx=2:shadowy=2[outv]" \
                 -map "[outv]" \
                 -map 0:a \
                 -c:v libx264 \
