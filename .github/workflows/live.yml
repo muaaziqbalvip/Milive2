@@ -1,4 +1,4 @@
-name: 24/7 YouTube Live Stream (Pro) v3
+name: 24/7 YouTube Live Stream (Pro)
 
 on:
   workflow_dispatch:
@@ -80,155 +80,151 @@ jobs:
             *)           echo "OVERLAY_POS=W-w-20:20"     >> $GITHUB_ENV ;;
           esac
 
-      # ─── Pre-download All Videos ────────────────────────────────────────────
-      - name: Pre-download All Videos
-        run: |
-          mkdir -p videos
-
-          download_video() {
-            local URL="$1"
-            local FILE="$2"
-            local RETRIES=5
-            local ATTEMPT=0
-            while [ $ATTEMPT -lt $RETRIES ]; do
-              ATTEMPT=$((ATTEMPT+1))
-              echo "[$(date)] Downloading $FILE (try $ATTEMPT)..."
-              curl -sL --max-time 300 --retry 3 "$URL" -o "videos/${FILE}.mp4"
-              local SIZE
-              SIZE=$(stat -c%s "videos/${FILE}.mp4" 2>/dev/null || echo 0)
-              if [ "$SIZE" -gt 102400 ]; then
-                echo "[$(date)] $FILE OK (${SIZE} bytes)"
-                return 0
-              fi
-              echo "[$(date)] WARN: $FILE too small. Retry..."
-              sleep 5
-            done
-            echo "[$(date)] ERROR: $FILE failed after $RETRIES attempts!"
-            return 1
-          }
-
-          download_video "https://muaaziqbalvip.github.io/Milive2/6.mp4" "v6"
-          download_video "https://muaaziqbalvip.github.io/Milive2/1.mp4" "v1"
-          download_video "https://muaaziqbalvip.github.io/Milive2/2.mp4" "v2"
-          download_video "https://muaaziqbalvip.github.io/Milive2/5.mp4" "v5"
-          download_video "https://muaaziqbalvip.github.io/Milive2/3.mp4" "v3"
-          download_video "https://muaaziqbalvip.github.io/Milive2/0.mp4" "v0_ad"
-          download_video "https://muaaziqbalvip.github.io/Milive2/4.mp4" "v4"
-
-          echo "=== Saari videos ready ==="
-          ls -lh videos/
-
       # ─── Main Stream Loop ───────────────────────────────────────────────────
       - name: Start 24/7 HD Stream
         run: |
-          echo "Stream shuru: $(date) | Quality: $QUALITY | Bitrate: $VBR"
+          echo "=============================="
+          echo "Stream shuru: $(date)"
+          echo "Quality: $QUALITY | Bitrate: $VBR"
+          echo "=============================="
 
-          stream_local_video() {
-            local FILE="$1"
-            local NOW_TEXT="$2"    # e.g.  NOW- PANIYON KI DUA
-            local NEXT_TEXT="$3"   # e.g.  NEXT- FAJAR KA SUKOON
-
-            echo "[$(date)] Playing: $NOW_TEXT"
-
-            # KEY FIX:
-            # drawtext ke text= mein single quotes BILKUL mat lagao.
-            # Special chars (colon, backslash) ko FFmpeg style se escape karo:
-            #   colon  →  \:
-            #   single quote inside text → \'  (nahi chahiye agar hataao)
-            # filter_complex poora double-quote mein wrap hai — bash expansion hogi
-            # lekin single-quote clash nahi hoga.
-
-            ffmpeg \
-              -loglevel warning \
-              -fflags +genpts+discardcorrupt \
-              -err_detect ignore_err \
-              -re \
-              -i "$FILE" \
-              -i logo.png \
-              -filter_complex \
-"[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30[base];[1:v]format=rgba,colorchannelmixer=aa=0.85[logo];[base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];[withlogo]drawtext=text=${NOW_TEXT}:fontsize=32:fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=8:x=20:y=H-th-90:shadowx=2:shadowy=2,drawtext=text=${NEXT_TEXT}:fontsize=26:fontcolor=yellow:box=1:boxcolor=black@0.6:boxborderw=8:x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
-              -map "[outv]" \
-              -map 0:a \
-              -avoid_negative_ts make_zero \
-              -c:v libx264 \
-              -preset "$PRESET" \
-              -tune zerolatency \
-              -profile:v high \
-              -level 4.2 \
-              -b:v "$VBR" \
-              -maxrate "$MAXR" \
-              -bufsize "$BUFS" \
-              -g 60 \
-              -keyint_min 60 \
-              -sc_threshold 0 \
-              -pix_fmt yuv420p \
-              -c:a aac \
-              -b:a 160k \
-              -ar 44100 \
-              -ac 2 \
-              -flvflags no_duration_filesize \
-              -f flv \
-              "${RTMP_URL}/${STREAM_KEY}" \
-              2>&1 | tee -a stream.log
-
-            local EXIT=$?
-            echo "[$(date)] Done: $NOW_TEXT | exit=$EXIT"
-            [ $EXIT -ne 0 ] && sleep 8
-            return $EXIT
-          }
-
-          # ── Playlist ──
-          # IMPORTANT: Title mein spaces theek hain lekin colon (:) ya quote (') mat rakho
-          # Agar chahiye toh replace karo with dash (-)
+          # ── Video list: URL|Title ──
           VIDEOS=(
-            "videos/v6.mp4|NOW- PANIYON KI DUA|NEXT- FAJAR KA SUKOON"
-            "videos/v1.mp4|NOW- FAJAR KA SUKOON|NEXT- SUKOON E ISHA"
-            "videos/v2.mp4|NOW- SUKOON E ISHA|NEXT- ROH KI PYASS"
-            "videos/v5.mp4|NOW- ROH KI PYASS|NEXT- TASKEEN SE BHAR"
-            "videos/v3.mp4|NOW- TASKEEN SE BHAR|NEXT- SUCH KI TALWAR"
-            "videos/v4.mp4|NOW- SUCH KI TALWAR|NEXT- PANIYON KI DUA"
+            "https://muaaziqbalvip.github.io/Milive2/6.mp4|PANIYON KI DUA"
+            "https://muaaziqbalvip.github.io/Milive2/1.mp4|FAJAR KA SUKOON"
+            "https://muaaziqbalvip.github.io/Milive2/2.mp4|SUKOON-E-ISHA"
+            "https://muaaziqbalvip.github.io/Milive2/5.mp4|ROH KI PYASS"
+            "https://muaaziqbalvip.github.io/Milive2/3.mp4|TSKEEN SE POUR"
+            "https://muaaziqbalvip.github.io/Milive2/4.mp4|SUCH KI TALWAR"
           )
 
-          AD_FILE="videos/v0_ad.mp4"
-          AD_NOW="NOW- Special OFFER"
+          AD_URL="https://muaaziqbalvip.github.io/Milive2/0.mp4"
+          AD_TITLE="--- Special OFFER"
 
           TOTAL=${#VIDEOS[@]}
+          FAIL_COUNT=0
 
-          # ── Infinite loop ──
+          # Infinite loop
           while true; do
             for (( i=0; i<TOTAL; i++ )); do
 
-              IFS='|' read -r VF NOW_T NEXT_T <<< "${VIDEOS[$i]}"
+              # Current video info
+              CURRENT_ENTRY="${VIDEOS[$i]}"
+              CURRENT_URL="${CURRENT_ENTRY%%|*}"
+              CURRENT_TITLE="${CURRENT_ENTRY##*|}"
 
-              # Next video ka next title (for ad's NEXT label)
+              # Next video info (wrap around)
               NEXT_INDEX=$(( (i+1) % TOTAL ))
-              IFS='|' read -r _ AFTER_NEXT _ <<< "${VIDEOS[$NEXT_INDEX]}"
+              NEXT_ENTRY="${VIDEOS[$NEXT_INDEX]}"
+              NEXT_TITLE="${NEXT_ENTRY##*|}"
 
               echo "=============================="
-              echo "[$(date)] $NOW_T"
-              echo "[$(date)] $NEXT_T"
+              echo "[$(date)] NOW: $CURRENT_TITLE"
+              echo "[$(date)] NEXT: $NEXT_TITLE"
               echo "=============================="
 
-              if [ ! -f "$VF" ]; then
-                echo "[$(date)] SKIP: $VF nahi mila!"
-                continue
-              fi
+              # ── Play current video ──
+              ffmpeg \
+                -re \
+                -i "$CURRENT_URL" \
+                -i logo.png \
+                -filter_complex \
+                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
+                   setsar=1,fps=30[base];\
+                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
+                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
+                   [withlogo]drawtext=\
+                     text='NOW\\: ${CURRENT_TITLE}':fontsize=32:fontcolor=white:\
+                     box=1:boxcolor=black@0.6:boxborderw=8:\
+                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
+                   drawtext=\
+                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
+                     box=1:boxcolor=black@0.6:boxborderw=8:\
+                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
+                -map "[outv]" \
+                -map 0:a \
+                -c:v libx264 \
+                -preset "$PRESET" \
+                -tune zerolatency \
+                -profile:v high \
+                -level 4.2 \
+                -b:v "$VBR" \
+                -maxrate "$MAXR" \
+                -bufsize "$BUFS" \
+                -g 60 \
+                -keyint_min 60 \
+                -sc_threshold 0 \
+                -pix_fmt yuv420p \
+                -c:a aac \
+                -b:a 160k \
+                -ar 44100 \
+                -ac 2 \
+                -flvflags no_duration_filesize \
+                -f flv \
+                "${RTMP_URL}/${STREAM_KEY}" \
+                2>&1 | tee -a stream.log
 
-              # Main video
-              stream_local_video "$VF" "$NOW_T" "$NEXT_T" || true
+              EXIT_CODE=${PIPESTATUS[0]}
+              echo "[$(date)] Video done. Exit: $EXIT_CODE"
 
-              # Ad
-              if [ -f "$AD_FILE" ]; then
-                echo "[$(date)] AD shuru..."
-                stream_local_video "$AD_FILE" "$AD_NOW" "$NEXT_T" || true
-                echo "[$(date)] AD khatam."
-              fi
+              # ── Play Ad after each video ──
+              echo "[$(date)] AD chal rahi hai..."
 
+              ffmpeg \
+                -re \
+                -i "$AD_URL" \
+                -i logo.png \
+                -filter_complex \
+                  "[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,\
+                   pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,\
+                   setsar=1,fps=30[base];\
+                   [1:v]format=rgba,colorchannelmixer=aa=0.85[logo];\
+                   [base][logo]overlay=${OVERLAY_POS}:format=auto[withlogo];\
+                   [withlogo]drawtext=\
+                     text='${AD_TITLE}':fontsize=32:fontcolor=white:\
+                     box=1:boxcolor=black@0.6:boxborderw=8:\
+                     x=20:y=H-th-90:shadowx=2:shadowy=2,\
+                   drawtext=\
+                     text='NEXT\\: ${NEXT_TITLE}':fontsize=26:fontcolor=yellow:\
+                     box=1:boxcolor=black@0.6:boxborderw=8:\
+                     x=20:y=H-th-45:shadowx=2:shadowy=2[outv]" \
+                -map "[outv]" \
+                -map 0:a \
+                -c:v libx264 \
+                -preset "$PRESET" \
+                -tune zerolatency \
+                -profile:v high \
+                -level 4.2 \
+                -b:v "$VBR" \
+                -maxrate "$MAXR" \
+                -bufsize "$BUFS" \
+                -g 60 \
+                -keyint_min 60 \
+                -sc_threshold 0 \
+                -pix_fmt yuv420p \
+                -c:a aac \
+                -b:a 160k \
+                -ar 44100 \
+                -ac 2 \
+                -flvflags no_duration_filesize \
+                -f flv \
+                "${RTMP_URL}/${STREAM_KEY}" \
+                2>&1 | tee -a stream.log
+
+              echo "[$(date)] AD khatam. Next video load ho rahi hai..."
               sleep 2
+
             done
 
-            echo "[$(date)] Playlist complete — phir se shuru..."
-            sleep 3
+            echo "[$(date)] Playlist complete — restart ho raha hai..."
+            FAIL_COUNT=$((FAIL_COUNT + 1))
+            if [ "$FAIL_COUNT" -gt 5 ]; then
+              sleep 30
+            else
+              sleep 3
+            fi
+
           done
 
       - name: Upload Stream Log
