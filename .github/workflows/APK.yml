@@ -331,7 +331,7 @@ jobs:
 
                   requestPermissions()
                   setupWebView()
-                  webView.loadUrl("https://miai-chi.vercel.app/")
+                  webView.loadUrl("https://muaaziqbalvip.github.io/MIAIWORLD/")
 
                   swipeRefresh.setOnRefreshListener {
                       webView.reload()
@@ -523,7 +523,7 @@ jobs:
             ✅ Real Firebase Integration
 
             ## 📱 What it does
-            - Runs https://miai-chi.vercel.app/
+            - Runs https://muaaziqbalvip.github.io/MIAIWORLD/
             - Full file upload/download
             - Camera & microphone access
             - Audio/music playback
