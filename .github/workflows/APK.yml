@@ -11,7 +11,7 @@ env:
   ANDROID_SDK_VERSION: '34'
   BUILD_TOOLS_VERSION: '34.0.0'
   GRADLE_VERSION: '8.0'
-  WEB_URL: 'https://muaaziqbalvip.github.io/MIAIWORLD/'
+  WEB_URL: 'https://muaaziqbalvip.github.io/24-7/index.html'
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
       - name: 🎨 Download Icon
         run: |
           mkdir -p app-icon
-          curl -L -o app-icon/icon.png "https://i.ibb.co/1t0KstMG/file-0000000090007208b1864eebb1423b3e.png"
+          curl -L -o app-icon/icon.png "https://i.ibb.co/4ZyQ767y/file-00000000b18c71f5ab8390d487b2c9d6.png"
 
       - name: 📱 Create Project
         run: |
@@ -331,7 +331,7 @@ jobs:
 
                   requestPermissions()
                   setupWebView()
-                  webView.loadUrl("https://muaaziqbalvip.github.io/MIAIWORLD/")
+                  webView.loadUrl("https://muaaziqbalvip.github.io/24-7/index.html")
 
                   swipeRefresh.setOnRefreshListener {
                       webView.reload()
@@ -523,7 +523,7 @@ jobs:
             ✅ Real Firebase Integration
 
             ## 📱 What it does
-            - Runs https://muaaziqbalvip.github.io/MIAIWORLD/
+            - Runs https://muaaziqbalvip.github.io/24-7/index.html
             - Full file upload/download
             - Camera & microphone access
             - Audio/music playback
