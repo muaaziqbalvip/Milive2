@@ -1,4 +1,4 @@
-name: MI AI Kotlin WebView App (Error-Free)
+name: MI TRADE ADMIN Kotlin WebView App (Error-Free)
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   ANDROID_SDK_VERSION: '34'
   BUILD_TOOLS_VERSION: '34.0.0'
   GRADLE_VERSION: '8.0'
-  WEB_URL: 'https://muaaziqbalvip.github.io/24-7/index.html'
+  WEB_URL: 'https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html'
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
       - name: 🎨 Download Icon
         run: |
           mkdir -p app-icon
-          curl -L -o app-icon/icon.png "https://i.ibb.co/4ZyQ767y/file-00000000b18c71f5ab8390d487b2c9d6.png"
+          curl -L -o app-icon/icon.png "https://i.ibb.co/whvZkrcs/7e168d0688da.png"
 
       - name: 📱 Create Project
         run: |
@@ -67,7 +67,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "MI AI"
+          rootProject.name = "MI TRADE ADMIN"
           include(":app")
           EOF
 
@@ -213,7 +213,7 @@ jobs:
 
           cat > android-app/app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <string name="app_name">MI AI</string>
+              <string name="app_name">MI TRADE ADMIN</string>
           </resources>
           EOF
 
@@ -331,7 +331,7 @@ jobs:
 
                   requestPermissions()
                   setupWebView()
-                  webView.loadUrl("https://muaaziqbalvip.github.io/24-7/index.html")
+                  webView.loadUrl("https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html")
 
                   swipeRefresh.setOnRefreshListener {
                       webView.reload()
@@ -509,9 +509,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.0
-          name: 🚀 MI AI WebView Browser
+          name: 🚀 MI TRADE ADMIN WebView Browser
           body: |
-            # MI AI - WebView Browser v1.0.0
+            # MI TRADE ADMIN - WebView Browser v1.0.0
 
             ## ✨ Features
             ✅ All Permissions (Camera, Mic, Storage, Location)
@@ -523,7 +523,7 @@ jobs:
             ✅ Real Firebase Integration
 
             ## 📱 What it does
-            - Runs https://muaaziqbalvip.github.io/24-7/index.html
+            - Runs https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html
             - Full file upload/download
             - Camera & microphone access
             - Audio/music playback
