@@ -1,4 +1,4 @@
-name: MI TRADE ADMIN Kotlin WebView App (Error-Free)
+name: MI NEXUS TV APP
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   ANDROID_SDK_VERSION: '34'
   BUILD_TOOLS_VERSION: '34.0.0'
   GRADLE_VERSION: '8.0'
-  WEB_URL: 'https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html'
+  WEB_URL: 'https://minexustv.vercel.app'
 
 jobs:
   build:
@@ -43,11 +43,11 @@ jobs:
       - name: 🎨 Download Icon
         run: |
           mkdir -p app-icon
-          curl -L -o app-icon/icon.png "https://i.ibb.co/whvZkrcs/7e168d0688da.png"
+          curl -L -o app-icon/icon.png "https://i.ibb.co/1f8gKMMq/file-00000000c3d88206b099b68f889682f0.png"
 
       - name: 📱 Create Project
         run: |
-          mkdir -p android-app/app/src/main/kotlin/com/muaaz/miai
+          mkdir -p android-app/app/src/main/kotlin/com/muaaz/minexus
           mkdir -p android-app/app/src/main/res/{layout,values,mipmap-xxxhdpi,mipmap-xxhdpi,mipmap-xhdpi,mipmap-hdpi,mipmap-mdpi}
 
       - name: 📋 Create Gradle Files
@@ -67,7 +67,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "MI TRADE ADMIN"
+          rootProject.name = "MIMEXUS TV"
           include(":app")
           EOF
 
@@ -97,7 +97,7 @@ jobs:
           android {
               compileSdk = 34
               defaultConfig {
-                  applicationId = "com.muaaz.miai"
+                  applicationId = "com.minexus.tv"
                   minSdk = 24
                   targetSdk = 34
                   versionCode = 1
@@ -135,7 +135,7 @@ jobs:
               lint {
                   abortOnError = false
               }
-              namespace = "com.muaaz.miai"
+              namespace = "com.minexus.tv"
           }
 
           dependencies {
@@ -152,7 +152,7 @@ jobs:
           EOF
 
           cat > android-app/app/proguard-rules.pro << 'EOF'
-          -keep class com.muaaz.miai.** { *; }
+          -keep class com.minexus.tv.** { *; }
           -dontwarn kotlin.**
           EOF
 
@@ -213,7 +213,7 @@ jobs:
 
           cat > android-app/app/src/main/res/values/strings.xml << 'EOF'
           <resources>
-              <string name="app_name">MI TRADE ADMIN</string>
+              <string name="app_name">MINEXUS TV</string>
           </resources>
           EOF
 
@@ -247,7 +247,7 @@ jobs:
                 "client_info": {
                   "mobilesdk_app_id": "1:882828936310:android:02574d0390aec517fe4b57",
                   "android_client_info": {
-                    "package_name": "com.muaaz.miai"
+                    "package_name": "com.minexus.tv"
                   }
                 },
                 "oauth_client": [
@@ -281,8 +281,8 @@ jobs:
 
       - name: 🎯 Create MainActivity
         run: |
-          cat > android-app/app/src/main/kotlin/com/muaaz/miai/MainActivity.kt << 'EOF'
-          package com.muaaz.miai
+          cat > android-app/app/src/main/kotlin/com/muaaz/minexus/MainActivity.kt << 'EOF'
+          package com.minexus.tv
 
           import android.Manifest
           import android.content.pm.PackageManager
@@ -331,7 +331,7 @@ jobs:
 
                   requestPermissions()
                   setupWebView()
-                  webView.loadUrl("https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html")
+                  webView.loadUrl("https://minexustv.vercel.app")
 
                   swipeRefresh.setOnRefreshListener {
                       webView.reload()
@@ -509,9 +509,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.0
-          name: 🚀 MI TRADE ADMIN WebView Browser
+          name: 🚀 MINEXUS TV WebView Browser
           body: |
-            # MI TRADE ADMIN - WebView Browser v1.0.0
+            # MINEXUS TV ADMIN - WebView Browser v1.0.0
 
             ## ✨ Features
             ✅ All Permissions (Camera, Mic, Storage, Location)
@@ -523,7 +523,7 @@ jobs:
             ✅ Real Firebase Integration
 
             ## 📱 What it does
-            - Runs https://muaaziqbalvip.github.io/MITRADERS/firebase-admin-panel/admin.html
+            - Runs https://minexustv.vercel.app
             - Full file upload/download
             - Camera & microphone access
             - Audio/music playback
